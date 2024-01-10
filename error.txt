@@ -1,0 +1,5 @@
+Line# 20: Redefinition of parameter ' a'
+Line# 32: Conflicting types for 'var'
+Line# 42: Variable or field 'e' declared void
+Line# 43: Conflicting types for'a'
+Line# 43: Conflicting types for'c'
