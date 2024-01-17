@@ -30,7 +30,7 @@ string inputString = "";
 bool multiLineString =  false;
 string token = "";
 
-SymbolTable table(10);
+SymbolTable table(11);
 
 void printToken(string token , string lexeme , int lineNum)
 {
@@ -492,7 +492,7 @@ NEWLINE \n
 
 "{"         {
 				indentationCount++;
-				table.EnterScope();
+				//table.EnterScope();
 
 				printToken("LCURL" , yytext , lineCount);
 

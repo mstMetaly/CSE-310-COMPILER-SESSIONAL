@@ -1,4 +1,5 @@
 %{
+#include<bits/stdc++.h>
 #include<iostream>
 #include<cstdlib>
 #include<cstring>
@@ -21,6 +22,9 @@ extern SymbolTable table;
 SymbolInfo_Details symbol_details;
 SymbolInfo_Details parameter_details;
 SymbolInfo_Details function_details;
+bool check = true;
+
+
 
 void yyerror(const char *s)
 {
@@ -59,105 +63,280 @@ void insertID_into_symbolTable(string name , string type)
 	
 }
 
+bool do_insert = false;
+//final fixed--2
 //check function declaration
-void check_function_declaration(string func_name , string func_ret_type , int line)
+
+
+
+//check variable 
+void check_variable(string name , string type , int line)
 {
-	if(table.Insert(func_name , "FUNCTION"))
+	SymbolInfo* symbol_info = table.Lookup(name);
+
+	if(symbol_info== nullptr)
+	{
+		error_out << "Line# " << line << ": Undeclared variable \' " << name << "\'" << endl;
+	}
+	
+}
+
+//check is array 
+void check_is_array(string name , string type , int line)
+{
+	SymbolInfo* symbol_info = table.Lookup(name);
+
+	if(symbol_info != nullptr)
+	{
+		SymbolInfo_Details details_obj = symbol_info->symbolInfo_details;
+
+		if(!details_obj.check_is_array())
 		{
-			SymbolInfo* symbol_info = table.Lookup(func_name);
-
-			SymbolInfo_Details function_details;
-
-			function_details.setName(func_name);
-			function_details.setType("FUNCTION");
-			function_details.setType(func_ret_type);
-
-			vector<SymbolInfo_Details>parameter_list = parameter_details.get_parameter_list();
-
-			for(int i = 0 ; i< parameter_details.get_parameterList_size() ; i++)
+			error_out << "Line# " << line << ": \'" << name << "\' is not an array" << endl;
+		}
+		else{
+			//check array subscript
+			if(type != "INT")
 			{
-				function_details.push_back_parameterList(parameter_list[i].getName() , parameter_list[i].getType());
+				error_out << "Line# " <<  line << ": Array subscript is not an integer" << endl;
 			}
+		}
+	}
 
-			symbol_info->symbolInfo_details = function_details;
+}
 
+
+void check_function_declaration(string func_name , string func_type , int line, int val)
+{
+	cout << "---"<< func_name << "---"<< endl;
+
+	SymbolInfo* symbol_info = table.Lookup_current(func_name);
+
+	if(symbol_info == nullptr)
+	{
+		table.Insert(func_name,"FUNCTION");
+
+		SymbolInfo* func_obj = table.Lookup_current(func_name);
+
+		SymbolInfo_Details details_obj;
+		details_obj.set_is_defined(true);//func has a definition 
+
+		vector<SymbolInfo_Details>parameter_list = symbol_details.get_parameter_list();
+
+		for(int i=0;i<parameter_list.size();i++)
+		{
+			details_obj.push_back_parameterList(parameter_list[i].getName() , parameter_list[i].getType());
+		}
+
+		details_obj.set_func_ret_type(func_type);
+		func_obj->symbolInfo_details = details_obj;
+
+	}
+	else{
+		error_out << "Line# " << line << ": \'" << func_name << "\'" << "redeclared as different kind of symbol" << endl;
+	}
+
+
+}
+
+//check parameter validity
+void check_parameter_validity(int line)
+{
+	vector<SymbolInfo_Details>parameter_list = symbol_details.get_parameter_list();
+
+	for(int i=0;i<parameter_list.size();i++)
+	{
+		//have to check is parameter type is void	
+	}
+
+	for(int i=0;i<parameter_list.size();i++)
+	{
+		if(!function_details.already_in_parameterList(parameter_list[i].getName()))
+		{
+			function_details.push_back_parameterList(parameter_list[i].getName(),parameter_list[i].getType());
 		}
 		else
 		{
-			//get the same name id at currentScope
-			if(table.Lookup_current(func_name))
-			{
-				SymbolInfo* symbol_info = table.Lookup_current(func_name);
-
-				if(symbol_info->getType()=="FUNCTION")
-				{
-					error_out << "Line# " << line << ": \'" <<func_name << "\' redeclared as different kind of symbol" << endl;
-				}
-				else
-				{
-					error_out << "Line# " << line << ": \'" <<func_name << "\' redeclared as different kind of symbol" << endl;
-				}
-
-			}
-			else{
-				
-				SymbolInfo* symbol_info = table.Lookup(func_name);
-
-				if(symbol_info->getType()=="FUNCTION")
-				{
-					error_out << "Line# " << line << ": \'" << func_name << "\' redeclared as different kind of symbol" << endl;
-				}
-				else{
-					 //global variable and func_name can't be similar
-					error_out << "Line# " << line << ": \'" << func_name << "\' redeclared as different kind of symbol" << endl;
-				}
-
-			}
-
-		}
-
-}
-
-
-//check function definiton
-void check_function_definition(string func_name , string func_ret_type , int line)
-{
-	if(table.Lookup(func_name))
-	{
-		SymbolInfo* symbol_info = table.Lookup(func_name);
-
-		if(symbol_info->getType() == "FUNCTION")
-		{
-			//have to check the parameter type , number etc
-			//gets the already declared function, parameter list is the already declared function's parameter list
-			vector<SymbolInfo_Details>already_parameter_list = (symbol_info->symbolInfo_details).get_parameter_list();
-
-			if(already_parameter_list.size() != parameter_details.get_parameterList_size())
-			{
-				//error_out << "Line# " << line << ": Too few arguments to function \'" << func_name << "\'" << endl;
-				error_out << "Line# " << line << ": Conflicting types for \'" << func_name <<"\'" << endl;
-			}
-			else
-			{
-				vector<SymbolInfo_Details>current_parameter_list = (symbol_info->symbolInfo_details).get_parameter_list();
-				//checks the parameter type
-				for(int i=0; i<current_parameter_list.size() ; i++)
-				{
-					if(current_parameter_list[i].getType() != already_parameter_list[i].getType())
-						error_out << "Line# " << line << ": Conflicting types for \'" << func_name <<"\'" << endl;
-						//error_out << "" <<  endl;
-				}
-
-			}
+			//error_out << "Line# " << line << ": Redefinition of parameter \'" << parameter_list[i].getName() <<"\'" << endl;
+			function_details.set_is_error_function(true);
+			cout << function_details.getName() << "   is errror func"<< endl;
+			break;
 		}
 		
 	}
+
+}
+
+void check_function_definition(string func_name , string func_type , int line )
+{
+	cout << "***"<< func_name << "***"<< endl;
+	cout << "in check_function_definition:"<< function_details.getName()<< endl;
+
+	function_details.setName(func_name);
+	function_details.set_func_ret_type(func_type);
+	function_details.set_is_defined(false);
+	function_details.set_is_declared(false);
+	function_details.set_is_error_function(false);
+
+	SymbolInfo* symbol_info = table.Lookup(func_name);
+
+	//there exists no function with this func name ,so can be inserted
+	if(symbol_info==nullptr)
+	{
+		function_details.set_is_declared(true);//declare = true , define = false
+		//checks the parameters are redeclared or not
+		check_parameter_validity(line);
+
+	}
 	else{
-		//error_out << "Line# " << line << ": Undeclared function \'" << func_name  << "\'" << endl;
-		check_function_declaration(func_name, func_ret_type , line);
+		if(symbol_info->getType()=="FUNCTION")
+		{
+			SymbolInfo_Details details_obj = symbol_info->symbolInfo_details;
+
+			//the function has a definition , so now have to check return type and parameter type
+			if(details_obj.get_is_defined()==true && details_obj.get_is_declared()==false)
+			{
+				//check return type and parameter 
+				if(details_obj.getFuncType() != func_type)
+				{
+					error_out << "Line# " << line <<": Conflicting types for \'" << func_name << "\'" << endl;
+					//function_details.set_is_error_function(true);
+				}
+				else
+				{
+					vector<SymbolInfo_Details>defined_parameter_list = details_obj.get_parameter_list();
+					vector<SymbolInfo_Details>current_parameter_list = symbol_details.get_parameter_list();
+
+					if(defined_parameter_list.size() != current_parameter_list.size())
+					{
+						error_out << "Line# " << line <<": Conflicting types for \'" << func_name << "\'" << endl;
+						//function_details.set_is_error_function(true);
+					}
+					else
+					{
+						for(int i=0;i<defined_parameter_list.size();i++)
+						{
+							if(defined_parameter_list[i].getType() != current_parameter_list[i].getType())
+							{
+								error_out << "Line# " << line <<": Conflicting types for \'" << func_name << "\'" << endl;
+								//function_details.set_is_error_function(true);
+							}
+						}
+					}
+					
+				}
+
+				function_details.set_is_declared(true);
+				function_details.set_is_defined(true);
+			}
+		}
+
+		else
+		{
+			//another variable exist with this function name
+			//function_details.set_is_error_function(true);
+			error_out << "Line# " << line << ": \'" << func_name << "\' redeclared as different kind of symbol" << endl;
+		}
+
+
+	}
+
+	
+
+}
+
+
+void add_parameter_to_func(string func_name,string ret_type)
+{
+	SymbolInfo* symbol_info = table.Lookup(func_name);
+
+	SymbolInfo_Details details_obj;
+
+	if(function_details.get_is_error_function())
+	{
+		vector<SymbolInfo_Details>parameter_list = function_details.get_parameter_list();
+
+		for(int i=0;i<parameter_list.size();i++)
+		{
+			details_obj.push_back_parameterList(parameter_list[i].getName(),parameter_list[i].getType());
+		}
+	}
+	else{
+		vector<SymbolInfo_Details>parameter_list = symbol_details.get_parameter_list();
+
+		for(int i=0;i<parameter_list.size();i++)
+		{
+			details_obj.push_back_parameterList(parameter_list[i].getName(),parameter_list[i].getType());
+		}
+	}
+
+	details_obj.set_func_ret_type(ret_type);
+	symbol_info->symbolInfo_details = details_obj;
+
+}
+
+
+//checks factor: function call
+/*
+ void check_factor_function(string name , string type , int line)
+{
+	SymbolInfo* symbol_info = table.Lookup(name);
+
+	if(symbol_info == nullptr)
+	{
+		error_out << "Line# " << line << ": Undeclared function \'" << name << "\'" << endl;
+	}
+	else{ 
+		if(symbol_info->getType() == "FUNCTION")
+		{
+			SymbolInfo_Details symbolInfo_details = symbol_info->symbolInfo_details;
+
+			vector<SymbolInfo_Details> parameter_list = (symbol_info->symbolInfo_details).get_parameter_list();
+			vector<SymbolInfo_Details> argument_list = parameter_details.get_argument_list();
+
+			
+			//check parameter list size ans type
+			if( argument_list.size() < parameter_list.size() )
+			{
+				error_out << "Line# " << line << ": Too few arguments to function \' "<<  name << "\'" << endl;
+			}
+			else if( argument_list.size() > parameter_list.size())
+			{
+				error_out << "Line# " << line << ": Too many arguments to function \' "<<  name << "\'" << endl;
+			}
+			else
+			{
+				cout << symbol_info->getName() << endl;
+			//check argument and parameter type
+				for(int i=0;i < parameter_list.size() ; i++)
+				{	
+					string argument_type = argument_list[i].getType();
+
+					if(argument_type == "CONST_INT")
+						argument_type = "INT";
+					else if(argument_type == "CONST_FLOAT")
+						argument_type = "CONST_FLOAT";
+
+					if(parameter_list[i].getType() != argument_type)
+					{
+						cout << parameter_list[i].getType() << "    argument: "<<argument_list[i].getName() << "   " << argument_list[i].getType() << endl;
+						error_out << "Line# " << line << ": Type mismatch for argument " << i+1<<" of \'" << name << "\'" << endl;
+					}
+				}
+			}
+		
+
+		}
+		else{
+			error_out  << "Line# " << line << ": \'" << name << "\' is not function" << endl;
+		}
+
 	}
 
 }
+*/
+
+
 
 //prints the parse tree
 void printParseTree(SymbolInfo* symbolInfo , int level)
@@ -199,11 +378,16 @@ SymbolInfo* symbolInfo;
 %token<symbolInfo> ADDOP MULOP INCOP DECOP RELOP ASSIGNOP LOGICOP BITOP NOT LPAREN RPAREN LCURL RCURL LSQUARE RSQUARE COMMA SEMICOLON PRINTLN
 %type<symbolInfo> start program unit var_declaration func_declaration type_specifier parameter_list func_definition compound_statement statements statement 
 %type<symbolInfo> declaration_list expression_statement expression variable logic_expression rel_expression simple_expression term unary_expression factor 
-%type<symbolInfo> argument_list arguments
+%type<symbolInfo> argument_list arguments new_scope
 
 
-%left 
-%right
+%left ASSIGNOP
+%left LOGICOP
+%left RELOP
+%left ADDOP
+%left MULOP
+%right NOT
+%right INCOP DECOP
 
 %nonassoc 
 
@@ -213,7 +397,7 @@ SymbolInfo* symbolInfo;
 start : program
 	{
 		//write your code in this block in all the similar blocks below
-		$$ = new SymbolInfo("start" , $1->getType());
+		$$ = new SymbolInfo("program" , $1->getType());
 		
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($1->getEndLine());
@@ -235,7 +419,7 @@ start : program
 
 program : program unit
 	{
-		$$ = new SymbolInfo("program" , $1->getType());
+		$$ = new SymbolInfo("program unit" , $1->getType());
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($2->getEndLine());
@@ -251,7 +435,7 @@ program : program unit
 
 	| unit 
 	{
-		$$ = new SymbolInfo("program" , $1->getType());
+		$$ = new SymbolInfo("unit" , $1->getType());
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($1->getEndLine());
@@ -269,7 +453,7 @@ program : program unit
 
 unit : var_declaration
 	{
-		$$ = new SymbolInfo("unit" , $1->getType());
+		$$ = new SymbolInfo("var_declaration" , $1->getType());
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($1->getEndLine());
@@ -284,7 +468,7 @@ unit : var_declaration
 
     | func_declaration
 	{
-		$$ = new SymbolInfo("unit" , $1->getType());
+		$$ = new SymbolInfo("func_declaration" , $1->getType());
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($1->getEndLine());
@@ -299,7 +483,7 @@ unit : var_declaration
 
     | func_definition
 	{
-		$$ = new SymbolInfo("unit" , $1->getType());
+		$$ = new SymbolInfo("func_definition" , $1->getType());
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($1->getEndLine());
@@ -314,10 +498,13 @@ unit : var_declaration
     ;
 
 
+//final fixed
 //have to check function parameter redefination, return type should be store ,also function name will be stored.
 func_declaration : type_specifier ID LPAREN parameter_list RPAREN SEMICOLON
 	{
-		$$ = new SymbolInfo("func_declaration" , $1->getType());
+		//function_details.setName($2->getName());//extra
+
+		$$ = new SymbolInfo($1->getName() + $2->getName() + "(" + $4->getName() + ")" + ";" , $1->getType());
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($6->getEndLine());
@@ -336,18 +523,24 @@ func_declaration : type_specifier ID LPAREN parameter_list RPAREN SEMICOLON
 		string func_name = $2->getName();
 		string func_ret_type = $1->getType();
 
-		//checks the function name already inserted or not
-		check_function_declaration(func_name , func_ret_type , $1->getStartLine());
-
 		
-		SymbolInfo_Details parameter;
-		parameter_details = parameter;
+
+		//checks the function name already inserted or not
+		check_function_declaration(func_name , func_ret_type , $1->getStartLine(),0);
+
+		symbol_details.clear_parameter_list();
+
+		SymbolInfo_Details obj;
+		function_details = obj;
+
 
 	}
 
 	| type_specifier ID LPAREN RPAREN SEMICOLON
 	{
-		$$ = new SymbolInfo("func_declaration" , $1->getType());
+		//function_details.setName($2->getName());
+
+		$$ = new SymbolInfo($1->getName() + $2->getName() + "(" + ")" + ";" , $1->getType());
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($5->getEndLine());
@@ -365,23 +558,32 @@ func_declaration : type_specifier ID LPAREN parameter_list RPAREN SEMICOLON
 		string func_name = $2->getName();
 		string func_ret_type = $1->getType();
 
-		//checks the function name already inserted or not
-		check_function_declaration(func_name , func_ret_type , $1->getStartLine());
+	
 
-		SymbolInfo_Details parameter;
-		parameter_details = parameter;
+		//checks the function name already inserted or not
+		check_function_declaration(func_name , func_ret_type , $1->getStartLine(),0);
+
+		symbol_details.clear_parameter_list();
+
+		SymbolInfo_Details obj;
+		function_details = obj;
 		
     }
 	;
 
 
+//final fixed
 //have to check function name , whether return type matched or not etc
-func_definition : type_specifier ID LPAREN parameter_list RPAREN compound_statement
-	{
-		$$ = new SymbolInfo("func_definition" , $1->getType());
+func_definition : type_specifier ID LPAREN parameter_list RPAREN {string function_name = $2->getName();string function_ret_type = $1->getType();int line = $1->getStartLine();check_function_definition(function_name , function_ret_type,line);}compound_statement{
+//func_definition : type_specifier ID LPAREN parameter_list RPAREN compound_statement{
+		cout << "in function definition"<< endl;
+		string fname = $1->getName() + $2->getName() + "(" + $4->getName() + ")" + $7->getName();
+		string ftype = $1->getType();
+
+		$$ = new SymbolInfo(fname , ftype);
 
 		$$->setStartLine($1->getStartLine());
-		$$->setEndLine($6->getEndLine());
+		$$->setEndLine($7->getEndLine());
 
 		string parseTreeLine = "func_definition : type_specifier ID LPAREN parameter_list RPAREN compound_statement";
 		$$->setParseTreeLine(parseTreeLine);
@@ -392,23 +594,34 @@ func_definition : type_specifier ID LPAREN parameter_list RPAREN compound_statem
 		$$->addChild($3);
 		$$->addChild($4);
 		$$->addChild($5);
-		$$->addChild($6);
+		$$->addChild($7);
 
 		string func_name = $2->getName();
 		string func_ret_type = $1->getType();
 
-		check_function_definition(func_name , func_ret_type , $1->getStartLine());
 
-		SymbolInfo_Details parameter;
-		parameter_details = parameter;
+		//insert the func id
+		if(function_details.get_is_declared()==true && function_details.get_is_defined()==false)
+		{
+			table.Insert(function_details.getName(), "FUNCTION");
+			//add parameters to function
+			add_parameter_to_func(function_details.getName() , ftype);
+		}
+			
+		
+		symbol_details.clear_parameter_list();
+		SymbolInfo_Details obj;
+		function_details = obj;
+
 	}
 
-	| type_specifier ID LPAREN RPAREN compound_statement
+	| type_specifier ID LPAREN RPAREN{string func_name = $2->getName();string ret_type = $1->getType();check_function_definition(func_name , ret_type , $1->getStartLine());} compound_statement
 	{
-		$$ = new SymbolInfo("func_definition" , $1->getType());
+
+		$$ = new SymbolInfo( $1->getName() + $2->getName() + "(" + ")" + $6->getName() , $1->getType());
 
 		$$->setStartLine($1->getStartLine());
-		$$->setEndLine($5->getEndLine());
+		$$->setEndLine($6->getEndLine());
 
 		string parseTreeLine = "func_definition : type_specifier ID LPAREN RPAREN compound_statement";
 		$$->setParseTreeLine(parseTreeLine);
@@ -418,24 +631,71 @@ func_definition : type_specifier ID LPAREN parameter_list RPAREN compound_statem
 		$$->addChild($2);
 		$$->addChild($3);
 		$$->addChild($4);
-		$$->addChild($5);
+		$$->addChild($6);
 
 		string func_name = $2->getName();
 		string func_ret_type = $1->getType();
 
-		check_function_definition(func_name , func_ret_type , $1->getStartLine());
+		if(function_details.get_is_declared()==true && function_details.get_is_defined()==false)
+		{
+			table.Insert(function_details.getName(), "FUNCTION");
+			//add parameters to function
+			add_parameter_to_func(function_details.getName() ,$1->getType());
+		}
 
-		SymbolInfo_Details parameter;
-		parameter_details = parameter;
+		//check and insert func id
+		//check_function_definition(func_name , func_ret_type , $1->getStartLine());
+
+
+		symbol_details.clear_parameter_list();
+		SymbolInfo_Details obj;
+		function_details = obj;
 
     }
  	;				
 
 
+
+//final fixed
+
+new_scope:{
+	cout <<"in new scope"<< endl;
+
+
+	table.EnterScope();
+
+	//inserts all the parameter of the declared function
+	//if(function_details.get_is_declared()==true && function_details.get_is_defined()==false)
+	//{
+		vector<SymbolInfo_Details>current_parameter_list = symbol_details.get_parameter_list();
+		vector<SymbolInfo_Details>error_parameter_list = function_details.get_parameter_list();
+		if(function_details.get_is_error_function())
+		{
+			for(int i=0;i<error_parameter_list.size() ;i++)
+			{
+				table.Insert(error_parameter_list[i].getName() , error_parameter_list[i].getType());
+			}
+		}
+		else
+		{
+			for(int i=0;i<current_parameter_list.size() ;i++)
+			{
+				table.Insert(current_parameter_list[i].getName() , current_parameter_list[i].getType());
+			}
+		}
+		
+	//}
+
+
+	
+}
+
+
+//final fixed
 //have to check parameter redefination,whether type is void or not
 parameter_list  : parameter_list COMMA type_specifier ID
 	{
-		$$ = new SymbolInfo("parameter_list" , $1->getType());
+		$$ = new SymbolInfo( $1->getName() + "," + $3->getName() + $4->getName() , $1->getType());//doesn't matter parameter list type cz we are inserting and have a parameter list in symbol info
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($4->getEndLine());
@@ -452,13 +712,16 @@ parameter_list  : parameter_list COMMA type_specifier ID
 		if($3->getType() == "VOID")
 			error_out << "Line# " << $1->getStartLine() << ": Variable or field \'" << $4->getName() << "\' declared void" << endl;
 		else{
-			if(parameter_details.already_in_parameterList($4->getName()))
+			
+			if(symbol_details.already_in_parameterList($4->getName()))
 			{
-				error_out << "Line# " << $1->getStartLine() << ": Redefinition of parameter \' " << $4->getName() << "\'" << endl;
+				error_out << "Line# " << $1->getStartLine() << ": Redefinition of parameter \'" << $4->getName() << "\'" << endl;
+				symbol_details.push_back_parameterList($4->getName() , $3->getType());
 			}
 			else{
-				parameter_details.push_back_parameterList($4->getName() , $3->getType());
+				symbol_details.push_back_parameterList($4->getName() , $3->getType());
 			}
+
 
 		}
 
@@ -466,7 +729,7 @@ parameter_list  : parameter_list COMMA type_specifier ID
 		
 	| parameter_list COMMA type_specifier
 	{
-		$$ = new SymbolInfo($1->getName() + ","+ $3->getName() , $1->getType());
+		$$ = new SymbolInfo($1->getName() + ","+ $3->getName() , $1->getType());//this doesn't matter
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($3->getEndLine());
@@ -480,7 +743,9 @@ parameter_list  : parameter_list COMMA type_specifier ID
 		$$->addChild($3);
 
 		if($3->getType() == "VOID")
-			error_out << "Line# " << $1->getStartLine() << ": Variable or field \'" << $1->getName() << "\' declared void" << endl;
+			error_out << "Line# " << $1->getStartLine() << ": Variable or field \'" << "" << "\' declared void" << endl;
+		
+		symbol_details.push_back_parameterList("",$3->getType());
 
     }
 
@@ -499,14 +764,15 @@ parameter_list  : parameter_list COMMA type_specifier ID
 		$$->addChild($2);
 
 		if($1->getType() == "VOID")
-			error_out << "Line# " << $1->getStartLine() << ": Variable or field \'" << $1->getName() << "\' declared void" << endl;
+			error_out << "Line# " << $1->getStartLine() << ": Variable or field \'" << $2->getName() << "\' declared void" << endl;
 		else{
-			if(parameter_details.already_in_parameterList($2->getName()))
+			if(symbol_details.already_in_parameterList($2->getName()))
 			{
-				error_out << "Line# " << $1->getStartLine() << ": Redefinition of parameter \' " << $2->getName() << "\'" << endl;
+				error_out << "Line# " << $1->getStartLine() << ": Redefinition of parameter \'" << $2->getName() << "\'" << endl;
+				symbol_details.push_back_parameterList($2->getName() , $1->getType());
 			}
 			else{
-				parameter_details.push_back_parameterList($2->getName() , $1->getType());
+				symbol_details.push_back_parameterList($2->getName() , $1->getType());
 			}
 
 		}
@@ -527,7 +793,9 @@ parameter_list  : parameter_list COMMA type_specifier ID
 		$$->addChild($1);
 
 		if($1->getType() == "VOID")
-			error_out << "Line# " << $1->getStartLine() << ": Variable or field \'" << $1->getName() << "\' declared void" << endl;
+			error_out << "Line# " << $1->getStartLine() << ": Variable or field \'" << "" << "\' declared void" << endl;
+		
+		symbol_details.push_back_parameterList("" , $1->getType());
 
 
     }
@@ -535,48 +803,62 @@ parameter_list  : parameter_list COMMA type_specifier ID
 
 
 
-compound_statement : LCURL statements RCURL
+//final fixed
+compound_statement : LCURL new_scope statements RCURL
 	{
-		$$ = new SymbolInfo("compound_statement" , $1->getType());
+		cout << "in compund statement"<< endl;
+
+		$$ = new SymbolInfo( "{" + $2->getName() + "}" , $1->getType());//doesn't matter its type
 
 		$$->setStartLine($1->getStartLine());
-		$$->setEndLine($3->getEndLine());
+		$$->setEndLine($4->getEndLine());
 
 		string parseTreeLine = "compound_statement : LCURL statements RCURL";
 		$$->setParseTreeLine(parseTreeLine);
 		logout << parseTreeLine << endl;
 
 		$$->addChild($1);
-		$$->addChild($2);
 		$$->addChild($3);
+		$$->addChild($4);
+		
 
-		table.PrintAllScopeTable(logout);//have to fix the error part and all insertion in table
+
+		table.PrintAllScopeTable(logout);
 		table.ExitScope();
+
+		cout << "after exit:"<< function_details.getName()<< endl;
+
+		// if(function_details.get_is_declared()==true && function_details.get_is_defined()==false)
+		// 	table.Insert(function_details.getName(), "FUNCTION");
+
 
 	}
 
- 	| LCURL RCURL
+ 	| LCURL new_scope RCURL
 	{
-        $$ = new SymbolInfo("compound_statement" , $1->getType());
+        $$ = new SymbolInfo("{}" , $1->getType());
 
 		$$->setStartLine($1->getStartLine());
-		$$->setEndLine($2->getEndLine());
+		$$->setEndLine($3->getEndLine());
 
 		string parseTreeLine = "compound_statement : LCURL RCURL";
 		$$->setParseTreeLine(parseTreeLine);
 		logout << parseTreeLine << endl;
 
 		$$->addChild($1);
-		$$->addChild($2);     
+		$$->addChild($3); 
+
+		table.PrintAllScopeTable(logout);//have to fix the error part and all insertion in table
+		table.ExitScope();    
     }
  	;
 
 
-//error fixed--
+//final fixed
 var_declaration : type_specifier declaration_list SEMICOLON
 	{
 
-		$$ = new SymbolInfo($1->getName() + $2->getName() + ";" , $1->getType());
+		$$ = new SymbolInfo($1->getName() + $2->getName() + ";" , symbol_details.get_variable_type());
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($3->getEndLine());
@@ -590,23 +872,22 @@ var_declaration : type_specifier declaration_list SEMICOLON
 		$$->addChild($3);
 
 
-		if($1->getType() == "VOID")
-		{
-			error_out << "Line# " << $1->getStartLine() << ": Variable or field \'" << $2->getName() << "\' declared void" << endl;
-		}
+		// if($1->getType() == "VOID")
+		// {
+		// 	error_out << "Line# " << $1->getStartLine() << ": Variable or field \'" << $2->getName() << "\' declared void" << endl;
+		// }
 
-		SymbolInfo_Details new_obj;
-		symbol_details = new_obj;
+		symbol_details.set_variable_type("");
 
 
 	}
  	;
 
 
-
+//final fixed
 type_specifier	: INT
 	{
-		$$ = new SymbolInfo($1->getName() , $1->getType());
+		$$ = new SymbolInfo($1->getName() , "INT");
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($1->getEndLine());
@@ -617,14 +898,14 @@ type_specifier	: INT
 
 		$$->addChild($1);
 
-		//sets id type
-		symbol_details.setType($1->getType());
+		//sets variable type
+		symbol_details.set_variable_type("INT");
 
 	}
 
  	| FLOAT
 	{
-		$$ = new SymbolInfo($1->getName() , $1->getType());
+		$$ = new SymbolInfo($1->getName() , "FLOAT");
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($1->getEndLine());
@@ -635,14 +916,14 @@ type_specifier	: INT
 
 		$$->addChild($1);
 
-		//sets id type
-		symbol_details.setType($1->getType());
+		//sets variable type
+		symbol_details.set_variable_type("FLOAT");
 
     }
 
  	| VOID
 	{
-		$$ = new SymbolInfo($1->getName() , $1->getType());
+		$$ = new SymbolInfo($1->getName() , "VOID");
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($1->getEndLine());
@@ -653,18 +934,19 @@ type_specifier	: INT
 
 		$$->addChild($1);
 
-		//sets id type
-		symbol_details.setType($1->getType());
+		//sets variable type
+		symbol_details.set_variable_type("VOID");
 
     }
  	;
  		
 
 
+//final fixed
 declaration_list : declaration_list COMMA ID
 	{
 
-		$$ = new SymbolInfo($1->getName() + "," + $2->getName() , $1->getType());
+		$$ = new SymbolInfo($1->getName() + "," + $2->getName() , symbol_details.get_variable_type());
 
 		$$->setStartLine($1->getEndLine());
 		$$->setEndLine($3->getEndLine());
@@ -678,21 +960,25 @@ declaration_list : declaration_list COMMA ID
 		$$->addChild($3);
 
 
-		if(symbol_details.getType() == "")
+		if(symbol_details.get_variable_type() == "")
 		{
-			error_out << "Line# " << $1->getStartLine() << ": Undeclared variable \' " << $3->getName() << "\'" << endl;
+			error_out << "Line# " << $1->getStartLine() << ": Undeclared variable \'" << $3->getName() << "\'" << endl;
 		}
 		else{
+			//checks already inserted in current scope or not
 			if(is_already_inserted($3->getName()))
 			{
 				//have to check type  of redeclaration
-				if(get_id_type($3->getName()) == $3->getType())
+				if(get_id_type($3->getName()) != symbol_details.get_variable_type())
 					error_out << "Line# " << $3->getStartLine() << ": Conflicting types for\'" << $3->getName() << "\'" << endl;
 				else
 					error_out << "Line# " << $1->getStartLine() << ": Redefinition of variable \'" << $3->getName() << "\'" << endl;
 			}
-			else{
-				insertID_into_symbolTable($3->getName() , $3->getType());
+			else
+			{
+				cout << "insert : "<< $3->getName() << "   "<<  symbol_details.get_variable_type()<< endl;
+
+				insertID_into_symbolTable($3->getName() , symbol_details.get_variable_type());
 			}
 		}
 
@@ -701,7 +987,7 @@ declaration_list : declaration_list COMMA ID
  	| declaration_list COMMA ID LSQUARE CONST_INT RSQUARE
 	{
 
-		$$ = new SymbolInfo($1->getName() + "," + $2->getName() + "[" + $5->getName() + "]" , $1->getType());
+		$$ = new SymbolInfo($1->getName() + "," + $2->getName() + "[" + $5->getName() + "]" , symbol_details.get_variable_type());
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($6->getEndLine());
@@ -717,21 +1003,25 @@ declaration_list : declaration_list COMMA ID
 		$$->addChild($5);
 		$$->addChild($6);
 
-		if(symbol_details.getType() == "")
+		if(symbol_details.get_variable_type() == "")
 		{
-			error_out << "Line# " << $1->getStartLine() << ": Undeclared variable \' " << $3->getName() << "\'" << endl;
+			error_out << "Line# " << $1->getStartLine() << ": Undeclared variable \'" << $3->getName() << "\'" << endl;
 		}
 		else{
 			if(is_already_inserted($3->getName()))
 			{
-				if(get_id_type($3->getName()) == $3->getType())
+				if(get_id_type($3->getName()) != symbol_details.get_variable_type())
 					error_out << "Line# " << $3->getStartLine() << ": Conflicting types for\'" << $3->getName() << "\'" << endl;
 				else 
 					error_out << "Line# " << $1->getStartLine() << ": Redefinition of variable \'" << $3->getName() << "\'" << endl;
 			}
 			else{
-				insertID_into_symbolTable($3->getName() , $3->getType());
-				symbol_details.set_is_array(true);
+				cout << "insert : "<< $3->getName() << "   "<<  symbol_details.get_variable_type()<< endl;
+
+				insertID_into_symbolTable($3->getName() , symbol_details.get_variable_type());
+				//symbol_details.set_is_array(true);
+				SymbolInfo* symbol = table.Lookup($3->getName());
+				(symbol->symbolInfo_details).set_is_array(true);
 			}
 		}
 			
@@ -740,7 +1030,7 @@ declaration_list : declaration_list COMMA ID
  	| ID
 	{
 			
-		$$ = new SymbolInfo($1->getName() , $1->getType());
+		$$ = new SymbolInfo($1->getName() , symbol_details.get_variable_type());
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($1->getEndLine());
@@ -750,22 +1040,31 @@ declaration_list : declaration_list COMMA ID
 		logout << parseTreeLine << endl;
 
 		$$->addChild($1);
-
+		
+		cout << "here : "<< $1->getName() << "  "<< symbol_details.get_variable_type()<< endl;
 		//inserts id into symbol table
-		if(symbol_details.getType() == "")
+		if(symbol_details.get_variable_type() == "")
 		{
+			cout << "here"<< endl;
 			error_out << "Line# " << $1->getStartLine() << ": Undeclared variable \' " << $1->getName() << "\'" << endl;
+		}
+		else if(symbol_details.get_variable_type() == "VOID")
+		{
+			error_out << "Line# " << $1->getStartLine() << ": Variable or field \'" << $1->getName() <<"\' declared void" << endl;
 		}
 		else{
 			if(is_already_inserted($1->getName()))
 			{
-				if(get_id_type($1->getName()) == $1->getType())
+				cout << "here2"<< endl;
+				if(get_id_type($1->getName()) != symbol_details.get_variable_type())
 					error_out << "Line# " << $1->getStartLine() << ": Conflicting types for\'" << $1->getName() << "\'" << endl;
 				else 
 					error_out << "Line# " << $1->getStartLine() << ": Redefinition of variable \'" << $1->getName() << "\'" << endl;
 			}
 			else{
-				insertID_into_symbolTable($1->getName() , $1->getType());
+				cout << "insert id : "<< $1->getName() << "   "<<  symbol_details.get_variable_type()<< endl;
+
+				insertID_into_symbolTable($1->getName() , symbol_details.get_variable_type());
 			}
 		}
 
@@ -776,7 +1075,7 @@ declaration_list : declaration_list COMMA ID
  	| ID LSQUARE CONST_INT RSQUARE
 	{
 
-		$$ = new SymbolInfo($1->getName() + "[" + $3->getName()+ "]" , $1->getType());
+		$$ = new SymbolInfo($1->getName() + "[" + $3->getName()+ "]" , symbol_details.get_variable_type());
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($4->getEndLine());
@@ -790,32 +1089,38 @@ declaration_list : declaration_list COMMA ID
 		$$->addChild($3);
 		$$->addChild($4);
 
-		if(symbol_details.getType() == "")
+		if(symbol_details.get_variable_type() == "")
 		{
 			error_out << "Line# " << $1->getStartLine() << ": Undeclared variable \' " << $1->getName() << "\'" << endl;
 		}
 		else{
 			if(is_already_inserted($1->getName()))
 			{
-				if(get_id_type($1->getName()) == $1->getType())
+				if(get_id_type($1->getName()) != symbol_details.get_variable_type())
 					error_out << "Line# " << $1->getStartLine() << ": Conflicting types for\'" << $1->getName() << "\'" << endl;
 				else 
 					error_out << "Line# " << $1->getStartLine() << ": Redefinition of variable \'" << $1->getName() << "\'" << endl;
 			}
 			else{
-				insertID_into_symbolTable($1->getName() , $1->getType());
-				symbol_details.set_is_array(true);
+				insertID_into_symbolTable($1->getName() , symbol_details.get_variable_type());
+
+				//symbol_details.set_is_array(true);
+				SymbolInfo* symbol = table.Lookup($1->getName());
+				(symbol->symbolInfo_details).set_is_array(true);
+
 			}
 		}
 
     }
  	;
 
-//--error fixed
+//--error final fixed
+
+
 
 statements : statement
 	{
-		$$ = new SymbolInfo("statements" , $1->getType());
+		$$ = new SymbolInfo( $1->getName() , $1->getType());
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($1->getEndLine());
@@ -830,7 +1135,7 @@ statements : statement
 	   
 	| statements statement
 	{
-		$$ = new SymbolInfo("statements" , $1->getType());
+		$$ = new SymbolInfo( $1->getName() + $2->getName() , $1->getType());
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($2->getEndLine());
@@ -849,7 +1154,7 @@ statements : statement
 
 statement : var_declaration
 	{
-		$$ = new SymbolInfo("statement" , $1->getType());
+		$$ = new SymbolInfo( $1->getName() , $1->getType());
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($1->getEndLine());
@@ -864,7 +1169,7 @@ statement : var_declaration
 	  
 	| expression_statement
 	{
-		$$ = new SymbolInfo("statement" , $1->getType());
+		$$ = new SymbolInfo( $1->getName(), $1->getType());
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($1->getEndLine());
@@ -879,7 +1184,7 @@ statement : var_declaration
 
 	| compound_statement
 	{
-		$$ = new SymbolInfo("statement" , $1->getType());
+		$$ = new SymbolInfo( $1->getName() , $1->getType());
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($1->getEndLine());
@@ -893,7 +1198,7 @@ statement : var_declaration
 
 	| FOR LPAREN expression_statement expression_statement expression RPAREN statement
 	{
-		$$ = new SymbolInfo("statement" , $1->getType());
+		$$ = new SymbolInfo( $1->getName() + "(" + $3->getName() + $4->getName() + $5->getName() + ")" + $7->getName() , $1->getType());
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($7->getEndLine());
@@ -914,7 +1219,7 @@ statement : var_declaration
 	  
 	| IF LPAREN expression RPAREN statement
 	{
-		$$ = new SymbolInfo("statement" , $1->getType());
+		$$ = new SymbolInfo( $1->getName() + "(" + $3->getName() + ")" + $5->getName() , $1->getType());
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($5->getEndLine());
@@ -932,7 +1237,7 @@ statement : var_declaration
 	  
 	| IF LPAREN expression RPAREN statement ELSE statement
 	{
-		$$ = new SymbolInfo("statement" , $1->getType());
+		$$ = new SymbolInfo( $1->getName() + "(" + $3->getName() + ")" + $5->getName() + $6->getName() + $7->getName() , $1->getType());
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($7->getEndLine());
@@ -953,7 +1258,7 @@ statement : var_declaration
 	  
 	| WHILE LPAREN expression RPAREN statement
 	{
-		$$ = new SymbolInfo("statement" , $1->getType());
+		$$ = new SymbolInfo( $1->getName() +"(" + $3->getName() + ")" + $5->getName() , $1->getType());
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($5->getEndLine());
@@ -971,7 +1276,7 @@ statement : var_declaration
 	  
 	| PRINTLN LPAREN ID RPAREN SEMICOLON
 	{
-		$$ = new SymbolInfo("statement" , $1->getType());
+		$$ = new SymbolInfo( $1->getName() + "(" + $3->getName() + ")" + ";" , $1->getType());
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($5->getEndLine());
@@ -989,7 +1294,7 @@ statement : var_declaration
 
 	| RETURN expression SEMICOLON
 	{
-		$$ = new SymbolInfo("statement" , $1->getType());
+		$$ = new SymbolInfo( $1->getName() + $2->getName() + ";" , $1->getType());
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($3->getEndLine());
@@ -1008,7 +1313,7 @@ statement : var_declaration
 
 expression_statement 	: SEMICOLON
 	{
-		$$ = new SymbolInfo("expression_statement" , $1->getType());
+		$$ = new SymbolInfo(";" , $1->getType());
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($1->getEndLine());
@@ -1018,11 +1323,14 @@ expression_statement 	: SEMICOLON
 		logout << parseTreeLine << endl;
 
 		$$->addChild($1);
+
+		//clear argument list
+		parameter_details.clear_argument_list();
 	}	
 
 	| expression SEMICOLON
 	{
-		$$ = new SymbolInfo("expression_statement" , $1->getType());
+		$$ = new SymbolInfo( $1->getName() + ";" , $1->getType());
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($2->getEndLine());
@@ -1034,14 +1342,37 @@ expression_statement 	: SEMICOLON
 		$$->addChild($1);
 		$$->addChild($2);
 
+		//clear argument list
+		parameter_details.clear_argument_list();
+
     }
 	;
 	  
-
-
+//have to fix----
+//--variable final fixed
 variable : ID
 	{
-		$$ = new SymbolInfo("variable" , $1->getType());
+		cout << "in variable "<< endl;
+
+		string var_name = $1->getName();
+		string var_type = $1->getType();
+		
+		SymbolInfo* symbol_info = table.Lookup(var_name);
+
+		if(symbol_info==nullptr)
+		{
+			error_out << "Line# " << $1->getStartLine() <<": Undeclared variable \'" << var_name <<"\'" << endl;
+			$$ = new SymbolInfo(var_name , "undeclared");
+		}
+		else
+		{
+			string type = symbol_info->getType();
+			$$ = new SymbolInfo(var_name ,type);
+			cout <<"in variable:   "<< var_name << "  " << type << endl;
+		}
+
+
+		//$$ = new SymbolInfo( $1->getName() , var_type);
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($1->getEndLine());
@@ -1052,11 +1383,54 @@ variable : ID
 
 		$$->addChild($1);
 
+		//checks the variable is declared , if it is a function name then have to check ret type , declared or not
+		//check_variable($1->getName()  , symbol_details.get_variable_type(), $1->getStartLine());
+
+
 	}
 
 	| ID LSQUARE expression RSQUARE
 	{
-		$$ = new SymbolInfo("variable" , $1->getType());
+		cout << "id lsquare expression rsquare" << endl;
+
+		//$$ = new SymbolInfo( $1->getName() + "[" + $3->getName() + "]" , symbol_details.get_variable_type());
+		string var_name = $1->getName();
+		string var_type = $1->getType();
+
+		SymbolInfo* symbol_info = table.Lookup(var_name);
+
+		if(symbol_info == nullptr)
+		{
+			error_out << "Line# " << $1->getStartLine() <<": Undeclared variable \'" << var_name <<"\'" << endl;
+			$$ = new SymbolInfo(var_name , "undeclared");
+		}
+		else
+		{
+			SymbolInfo_Details details_obj = symbol_info->symbolInfo_details;
+
+			if(details_obj.check_is_array())
+			{
+				string array_type = symbol_info->getType();
+
+				cout << "--------------------------------"<< array_type << endl;
+				string subscript_type = $3->getType();
+
+				if(subscript_type!= "INT")
+				{
+					error_out << "Line# " <<  $1->getStartLine() << ": Array subscript is not an integer" << endl;
+				}
+
+				$$ = new SymbolInfo(var_name,array_type);
+				cout << "--------------------------------"<< $$->getName() << "   "<< $$->getType() << endl;
+				
+			}
+			else
+			{
+				error_out << "Line# " << $1->getStartLine() << ": \'" << var_name << "\' is not an array" << endl;
+				$$ = new SymbolInfo(var_name,var_type);
+			}
+
+		}
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($4->getEndLine());
@@ -1070,14 +1444,26 @@ variable : ID
 		$$->addChild($3);
 		$$->addChild($4);
 
+		//checks is it array or not , array subscript int or not , array declared or not etc.
+		string name = $1->getName();
+		string subscript_type = $3->getType();
+		string type = symbol_details.get_variable_type();
+
+		//check_variable(name, type , $1->getStartLine());
+
+		//check_is_array(name, subscript_type, $1->getStartLine());
+
     }
 	;
-	 
+//--// 
+
+
+
 
 
  expression : logic_expression
  	{
-		$$ = new SymbolInfo("expression" , $1->getType());
+		$$ = new SymbolInfo( $1->getName(), $1->getType());
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($1->getEndLine());
@@ -1091,7 +1477,33 @@ variable : ID
 
 	| variable ASSIGNOP logic_expression
 	{
-		$$ = new SymbolInfo("expression" , $1->getType());
+		//checks  Generate error message if operands of an assignment operator are not consistent with each
+		//other. Note that, the second operand of the assignment operator will be an expression that
+		//may contain numbers, variables, function calls, etc.
+		string operand1_type = $1->getType();
+		string operand2_type = $3->getType();
+		string type = operand2_type;
+
+		cout << "-------"<< endl;
+		cout << "arrayyyyyyyyyyyyyyyy:" << $1->getName() << "  " << $1->getType() << endl;
+		cout << $1->getName()<< ":"<< $1->getType() << "       " << $3->getName() << ": "<< $3->getType() << endl;
+
+		if(operand1_type == "VOID" || operand2_type == "VOID")
+		{
+			error_out << "Line# " << lineCount << ": Void cannot be used in expression" << endl;
+		}
+		else if(operand1_type == "INT" && operand2_type== "FLOAT")
+		{
+			error_out << "Line# " << lineCount << ": Warning: possible loss of data in assignment of FLOAT to INT" << endl;
+			type = "INT";
+		}
+		else if(operand1_type == "FLOAT" && operand2_type== "FLOAT")
+		{
+			type = "FLOAT";
+		}
+
+		
+		$$ = new SymbolInfo( $1->getName() + "=" + $3->getName() , type);
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($3->getEndLine());
@@ -1108,10 +1520,10 @@ variable : ID
 	;
 
 
-
+//almost fixed
 logic_expression : rel_expression
 	{
-		$$ = new SymbolInfo("logic_expression" , $1->getType());
+		$$ = new SymbolInfo( $1->getName() , $1->getType());
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($1->getEndLine());
@@ -1125,7 +1537,23 @@ logic_expression : rel_expression
 
 	| rel_expression LOGICOP rel_expression
 	{
-		$$ = new SymbolInfo("logic_expression" , $1->getType());
+		//checks the result of LOGICOP should be integer
+		string operand1_type = $1->getType();
+		string operand2_type = $3->getType();
+		string type = "INT";
+
+		if(operand1_type == "VOID")
+			error_out << "Line# " << lineCount << ": Void cannot be used in expression" << endl;
+		else if(operand2_type == "VOID")
+		{
+			error_out << "Line# " << lineCount << ": Void cannot be used in expression" << endl;
+		}
+		else
+		{
+			//handleTypeCastAvoidCheck($1,$3,"Type mismatch");
+		}
+
+		$$ = new SymbolInfo( $1->getName() + $2->getName() + $3->getName() , type);
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($3->getEndLine());
@@ -1142,10 +1570,10 @@ logic_expression : rel_expression
 	;
 			
 
-
+//almost fixed
 rel_expression	: simple_expression
 	{
-		$$ = new SymbolInfo("rel_expression" , $1->getType());
+		$$ = new SymbolInfo( $1->getName() , $1->getType());
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($1->getEndLine());
@@ -1160,7 +1588,23 @@ rel_expression	: simple_expression
 
 	| simple_expression RELOP simple_expression
 	{
-		$$ = new SymbolInfo("rel_expression" , $1->getType());
+		//checks the result of RELOP should be an integer
+		string operand1_type = $1->getType();
+		string operand2_type = $3->getType();
+		string type = "INT";
+
+		if(operand1_type == "VOID")
+			error_out << "Line# " << lineCount << ": Void cannot be used in expression" << endl;
+		else if(operand2_type == "VOID")
+		{
+			error_out << "Line# " << lineCount << ": Void cannot be used in expression" << endl;
+		}
+		else
+		{
+			//handleTypeCastAvoidCheck($1,$3,"Type mismatch");
+		}
+
+		$$ = new SymbolInfo( $1->getName() + $2->getName() + $3->getName() , type);
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($1->getEndLine());
@@ -1177,10 +1621,10 @@ rel_expression	: simple_expression
 	;
 
 
-
+//almost fixed
 simple_expression : term
 	{
-		$$ = new SymbolInfo("simple_expression" , $1->getType());
+		$$ = new SymbolInfo( $1->getName() , $1->getType());
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($1->getEndLine());
@@ -1194,7 +1638,26 @@ simple_expression : term
 		  
 	| simple_expression ADDOP term
 	{
-		$$ = new SymbolInfo("simple_expression" , $1->getType());
+		string operand1_type = $1->getType();
+		string operand2_type = $3->getType();
+		string type = operand1_type;
+
+		if(operand1_type == "VOID")
+			error_out << "Line# " << lineCount << ": Void cannot be used in expression" << endl;
+		else if(operand2_type == "VOID")
+		{
+			type = operand1_type;
+			error_out << "Line# " << lineCount << ": Void cannot be used in expression" << endl;
+
+		}
+		else
+		{
+			//handleTypeCastAvoidCheck($1,$3,"Type mismatch");
+		}
+		
+		//handleTypeCheck(left symbol,right symbol)
+
+		$$ = new SymbolInfo( $1->getName() +  $2->getType() + $3->getName() , type);
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($3->getEndLine());
@@ -1211,10 +1674,10 @@ simple_expression : term
 	;
 
 
-
+//fixed--almost
 term :	unary_expression
 	{
-		$$ = new SymbolInfo("term" , $1->getType());
+		$$ = new SymbolInfo( $1->getName() , $1->getType());
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($1->getEndLine());
@@ -1228,7 +1691,46 @@ term :	unary_expression
      
 	|  term MULOP unary_expression
 	{
-		$$ = new SymbolInfo("term" , $1->getType());
+		//checks both operands for modulus int or not , disision by zero or not
+
+		string addop_symbol = $2->getName();
+		string operand1_type = $2->getType();
+		string operand2_name = $3->getName();
+		string operand2_type = $3->getType();
+
+		string type = operand2_type;
+
+		if(operand1_type == "VOID")
+		{
+			error_out << "Line# " << lineCount << ": Void cannot be used in expression" << endl;
+		}
+		else if(operand2_type == "VOID")
+		{
+			type = operand1_type;
+			error_out << "Line# " << lineCount << ": Void cannot be used in expression" << endl;
+		}
+		else if(addop_symbol == "/")
+		{
+			if(operand2_name == "0")
+				error_out << "Line# " << lineCount << ": Warning: division by zero i=0f=1Const=0" << endl;
+
+		}
+		else if(addop_symbol == "%")
+		{
+			if(operand2_name == "0")
+				error_out << "Line# " << lineCount << ": Warning: division by zero i=0f=1Const=0" << endl;
+			else if(operand1_type != "INT " || operand2_type!= "INT")
+				error_out << "Line# " << lineCount << ": Operands of modulus must be integers" << endl;
+			
+			type = "INT";
+		}
+		else
+		{
+			//handleTypeCastAvoidCheck($1,$3,"Type mismatch");
+		}
+
+
+		$$ = new SymbolInfo( $1->getName() + $2->getType() + $3->getName() , type);
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($3->getEndLine());
@@ -1245,10 +1747,10 @@ term :	unary_expression
     ;
 
 
-
+//almost fixed---
 unary_expression : ADDOP unary_expression
 	{
-		$$ = new SymbolInfo("unary_expression" , $1->getType());
+		$$ = new SymbolInfo( $1->getType() + $2->getName() , $1->getType());
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($2->getEndLine());
@@ -1264,7 +1766,7 @@ unary_expression : ADDOP unary_expression
 		 
 	| NOT unary_expression
 	{
-		$$ = new SymbolInfo("unary_expression" , $1->getType());
+		$$ = new SymbolInfo( $1->getType() + $2->getName() , $1->getType());
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($2->getEndLine());
@@ -1279,7 +1781,7 @@ unary_expression : ADDOP unary_expression
 		 
 	| factor 
 	{
-		$$ = new SymbolInfo("unary_expression" , $1->getType());
+		$$ = new SymbolInfo( $1->getName() , $1->getType());
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($1->getEndLine());
@@ -1293,10 +1795,15 @@ unary_expression : ADDOP unary_expression
 	;
 	
 
-
+// final fixed
 factor	: variable
 	{
-		$$ = new SymbolInfo("factor" , $1->getType());
+		string variable_type = $1->getType();
+
+		//if(variable_type != "CONST_INT" || variable_type!= "CONST_FLOAT" || variable_type != "CONST_VOID")
+			//variable_type = "CONST_"+ variable_type;
+
+		$$ = new SymbolInfo( $1->getName() , variable_type);
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($1->getEndLine());
@@ -1311,7 +1818,71 @@ factor	: variable
 
 	| ID LPAREN argument_list RPAREN
 	{
-		$$ = new SymbolInfo("factor" , $1->getType());
+		cout << "id lparen argument list rparen"<< endl;
+
+		string name = $1->getName();
+		string type = $1->getType();
+
+		string factor_name = $1->getName() + "("+$3->getName() + ")";
+
+		SymbolInfo* symbol_info = table.Lookup(name);
+
+		if(symbol_info == nullptr)
+		{
+			error_out << "Line# " << lineCount << ": Undeclared function \'" << name << "\'" << endl;
+			$$ = new SymbolInfo( factor_name,  "undeclared");
+		}
+		else if(symbol_info->getType()=="FUNCTION")
+		{
+
+			SymbolInfo_Details symbol_info_details = symbol_info->symbolInfo_details;
+			string func_return_type = symbol_info_details.getFuncType();
+
+			cout << "----------------------in facccccccccccctoor22222:"<< factor_name << "     "<< func_return_type <<endl;
+			$$ = new SymbolInfo( factor_name, func_return_type);
+
+			cout << "----------------------in facccccccccccctoor:"<< $$->getName() << "     "<< $$->getType()<<endl;
+
+			vector<SymbolInfo_Details> parameter_list = (symbol_info->symbolInfo_details).get_parameter_list();
+			vector<SymbolInfo_Details> argument_list = parameter_details.get_argument_list();
+
+			cout << symbol_info->getName() << "   parameter list size:" << parameter_list.size() << endl;
+			cout << symbol_info->getName() << "   argument list size:" << argument_list.size() << endl;
+
+			//check parameter list size ans type
+			if( argument_list.size() < parameter_list.size() )
+			{
+				error_out << "Line# " << lineCount << ": Too few arguments to function \'"<<  name << "\'" << endl;
+			}
+			else if( argument_list.size() > parameter_list.size())
+			{
+				error_out << "Line# " << lineCount << ": Too many arguments to function \'"<<  name << "\'" << endl;
+			}
+			else
+			{
+				cout << symbol_info->getName() << "in else condition" << endl;
+
+				//check argument and parameter type
+				for(int i=0;i < parameter_list.size() ; i++)
+				{	
+					string argument_type = argument_list[i].getType();
+
+					if(parameter_list[i].getType() != argument_type)
+					{
+						cout << parameter_list[i].getType() << "    argument: "<<argument_list[i].getName() << "   " << argument_list[i].getType() << endl;
+						error_out << "Line# " << lineCount << ": Type mismatch for argument " << i+1<<" of \'" << name << "\'" << endl;
+					}
+				}
+			}
+
+		}
+		else{
+
+			error_out << "Line# " << lineCount << ": is not a function \' "<<  name << "\'" << endl;
+			$$ = new SymbolInfo( factor_name ,"not function");
+		}
+			
+	
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($4->getEndLine());
@@ -1325,11 +1896,15 @@ factor	: variable
 		$$->addChild($3);
 		$$->addChild($4);
 
+
+		//function call : checks the function is declared or not , arguments compatibility
+		//check_factor_function(name , type , $1->getStartLine());
+
     }
 
 	| LPAREN expression RPAREN
 	{
-		$$ = new SymbolInfo("factor" , $1->getType());
+		$$ = new SymbolInfo( "(" + $2->getName() + ")" , $1->getType());
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($3->getEndLine());
@@ -1346,7 +1921,7 @@ factor	: variable
 
 	| CONST_INT
 	{
-		$$ = new SymbolInfo("factor" , $1->getType());
+		$$ = new SymbolInfo( $1->getName() , "INT");
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($1->getEndLine());
@@ -1361,7 +1936,7 @@ factor	: variable
 
 	| CONST_FLOAT
 	{
-		$$ = new SymbolInfo("factor" , $1->getType());
+		$$ = new SymbolInfo( $1->getName(),  "FLOAT");
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($1->getEndLine());
@@ -1376,7 +1951,7 @@ factor	: variable
 
 	| variable INCOP
 	{
-		$$ = new SymbolInfo("factor" , $1->getType());
+		$$ = new SymbolInfo( $1->getName() + "++" , $1->getType());
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($1->getEndLine());
@@ -1388,11 +1963,13 @@ factor	: variable
 		$$->addChild($1);
 		$$->addChild($2);
 
+		//check_factor_incop
+
     } 
 
 	| variable DECOP
 	{
-		$$ = new SymbolInfo("factor" , $1->getType());
+		$$ = new SymbolInfo( $1->getName()+ "--" , $1->getType());
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($1->getEndLine());
@@ -1404,14 +1981,16 @@ factor	: variable
 		$$->addChild($1);
 		$$->addChild($2);
 
+		//check_factor_decop
+
     }
 	;
 	
 
-
+//fixed
 argument_list : arguments
 	{
-		$$ = new SymbolInfo("argument_list" , $1->getType());
+		$$ = new SymbolInfo( $1->getName() , $1->getType());
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($1->getEndLine());
@@ -1430,10 +2009,10 @@ argument_list : arguments
 	}
 	;
 	
-
+//fixed
 arguments : arguments COMMA logic_expression
 	{
-		$$ = new SymbolInfo("arguments" , $1->getType());
+		$$ = new SymbolInfo( $1->getName() + "," +  $3->getName() , $1->getType());
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($3->getEndLine());
@@ -1446,11 +2025,21 @@ arguments : arguments COMMA logic_expression
 		$$->addChild($2);
 		$$->addChild($3);
 
+		//pushing the argument
+		
+		string name = $3->getName();
+		string type = $3->getType();
+		
+		parameter_details.push_back_argumentList(name , type);
+
+		cout << "arguments1:"<< name << "  " << type << endl;
+
+
 	}
 	
 	| logic_expression
 	{
-		$$ = new SymbolInfo("arguments" , $1->getType());
+		$$ = new SymbolInfo( $1->getName() , $1->getType());
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($1->getEndLine());
@@ -1461,6 +2050,40 @@ arguments : arguments COMMA logic_expression
 
 		$$->addChild($1);
 		
+		string name = $1->getName();
+		string type = $1->getType();
+
+		//extra
+		string var_name = $1->getName();
+		string var_type = $1->getType();
+
+		string substring = "[";
+
+		if (var_name.find(substring) != std::string::npos)
+		{
+			size_t pos = var_name.find('[');
+
+    		if (pos != std::string::npos) 
+			{
+        		// Extract the substring before the '[' character
+        		var_name = var_name.substr(0, pos);
+    		}
+		}
+
+		SymbolInfo* symbol_info = table.Lookup(var_name);
+		
+		if(symbol_info!=nullptr)
+		{
+			var_type = symbol_info->getType();
+		}
+
+		//
+		
+		cout << "arguments2:"<< var_name << "  " << var_type << endl;
+		//parameter_details.push_back_argumentList(name , type);
+		parameter_details.push_back_argumentList(var_name , var_type);
+
+	
     }
 	;
  
@@ -1471,6 +2094,7 @@ arguments : arguments COMMA logic_expression
 
 int main(int argc,char *argv[])
 {
+	//updated
 	FILE* fp = fopen(argv[1] , "r");
 
 	if(fp == NULL)
@@ -1481,7 +2105,7 @@ int main(int argc,char *argv[])
 
 	logout.open("log.txt");
     error_out.open("error.txt");
-    parse_out.open("parsetree.txt");
+    parse_out.open("parse_tree.txt");
 	
 
 	yyin=fp;

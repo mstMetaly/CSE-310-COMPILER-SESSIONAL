@@ -4,6 +4,7 @@
 
 using namespace std;
 
+
 class SymbolInfo_Details
 {
 private:
@@ -11,8 +12,14 @@ private:
     string type;
     string func_return_type;
     vector<SymbolInfo_Details>parameter_list;
+    vector<SymbolInfo_Details>argument_list;
     bool isArray;
     bool isFunction;
+    string var_type;
+    bool isDeclared;
+    bool isDefined;
+    bool is_error_func;
+    bool is_id;
 
 public:
     SymbolInfo_Details()
@@ -22,6 +29,12 @@ public:
         func_return_type = "";
         isArray = false;
         isFunction = false;
+        var_type = "";
+        isDeclared = false;
+        isDefined = false;
+        is_error_func = false;
+        is_id = false;
+
     }
 
     SymbolInfo_Details(string name , string type)
@@ -29,6 +42,12 @@ public:
         this->name = name;
         this->type = type;
         isArray = false;
+        isFunction = false;
+        var_type = "";
+        isDeclared = false;
+        isDefined = false;
+        is_error_func = false;
+        is_id = false;
     }
 
     string getName()
@@ -86,6 +105,46 @@ public:
         this->isFunction = val;
     }
 
+    bool get_is_declared()
+    {
+        return isDeclared;
+    }
+
+    void set_is_declared(bool val)
+    {
+        this->isDeclared = val;
+    }
+
+    bool get_is_defined()
+    {
+        return isDefined;
+    }
+
+    void set_is_defined(bool val)
+    {
+        this->isDefined = val;
+    }
+
+    bool get_is_error_function()
+    {
+        return this->is_error_func;
+    }
+
+    void set_is_error_function(bool val)
+    {
+        this->is_error_func = val;
+    }
+
+    bool get_is_id()
+    {
+        return is_id;
+    }
+
+    void set_is_id(bool val)
+    {
+        this->is_id = val;
+    }
+
     void push_back_parameterList(string name ,string type)
     {
         SymbolInfo_Details symbol_details(name , type);
@@ -108,6 +167,37 @@ public:
     vector<SymbolInfo_Details>get_parameter_list()
     {
         return parameter_list;
+    }
+
+    void push_back_argumentList(string name ,string type)
+    {
+        SymbolInfo_Details symbol_details(name , type);
+        this->argument_list.push_back(symbol_details);
+    }
+
+    vector<SymbolInfo_Details>get_argument_list()
+    {
+        return argument_list;
+    }
+
+    void clear_argument_list()
+    {
+        argument_list.clear();
+    }
+
+    void clear_parameter_list()
+    {
+        parameter_list.clear();
+    }
+
+    void set_variable_type(string var_type)
+    {
+        this->var_type = var_type;
+    }
+
+    string get_variable_type()
+    {
+        return this->var_type;
     }
 
 
@@ -138,6 +228,8 @@ public:
         name = "";
         type = "";
         nextSymbolInfo = nullptr;
+        SymbolInfo_Details obj;
+        symbolInfo_details = obj;
     }
 
     SymbolInfo(string name, string type)
@@ -145,6 +237,9 @@ public:
         this->name = name;
         this->type = type;
         nextSymbolInfo = nullptr;
+
+        SymbolInfo_Details obj;
+        symbolInfo_details = obj;
     }
 
     SymbolInfo(const SymbolInfo &obj)
@@ -487,23 +582,53 @@ public:
 
             if (current == nullptr)
             {
-                outfile << "\t" << i + 1 << endl;
+               // outfile << "\t" << i + 1 << endl;
             }
             else
             {
                 if (current->getNextSymbolInfo() == nullptr)
                 {
-                    outfile << "\t" << i + 1 << " --> (" << current->getName() << "," << current->getType() << ")" << endl;
+                    if(current->getType()=="FUNCTION")
+                    {
+                        SymbolInfo_Details details_obj = current->symbolInfo_details;
+                        string ret_type = details_obj.getFuncType();
+                        outfile << "\t" << i + 1 << "--> <" << current->getName() << "," << current->getType() << ","<< ret_type << ">" << endl;
+                    }
+                    else
+                    {
+                        outfile << "\t" << i + 1 << "--> <" << current->getName() << "," << current->getType() << ">" << endl;
+                    }
+                   
                 }
 
                 else if (current->getNextSymbolInfo() != nullptr)
                 {
-                    outfile << "\t" << i + 1 << " --> (" << current->getName() << "," << current->getType() << ")";
+                    if(current->getType() == "FUNCTION")
+                    {
+                        SymbolInfo_Details details_obj = current->symbolInfo_details;
+                        string ret_type = details_obj.getFuncType();
+                        outfile << "\t" << i + 1 << "--> <" << current->getName() << "," << current->getType() << "," << ret_type << ">";
+                    }
+                    else
+                    {
+                        outfile << "\t" << i + 1 << "--> <" << current->getName() << "," << current->getType() << ">";
+                    }
+                   
                     next = current->getNextSymbolInfo();
 
                     while (next != nullptr)
                     {
-                        outfile << " --> (" << next->getName() << "," << next->getType() << ")";
+                        if(next->getType()=="FUNCTION")
+                        {
+                            SymbolInfo_Details details_obj = next->symbolInfo_details;
+                            string ret_type = details_obj.getFuncType();
+                            outfile << " <" << next->getName() << "," << next->getType() << ","<< ret_type << ">";
+                        }
+                        else
+                        {
+                            outfile << " <" << next->getName() << "," << next->getType() << ">";
+                        }
+                       
                         next = next->getNextSymbolInfo();
                     }
                     cout << endl;
@@ -692,6 +817,23 @@ public:
         
     }
 
+
+    SymbolInfo* Lookup_global(string name)
+    {
+        ScopeTable *global_scope = currScopeTable;
+
+        if(currScopeTable == nullptr)
+            return nullptr;
+
+        while (global_scope->getParentScope() != nullptr)
+        {
+            global_scope = global_scope->getParentScope();
+        }
+
+        return global_scope->Lookup(name);
+    }
+
+
     /*Print Current ScopeTable: Print the current ScopeTable.*/
 
     void PrintCurrentScopeTable(ofstream &outfile)
@@ -754,3 +896,5 @@ public:
         return currScopeTable->getCurrentId();
     }
 };
+
+
