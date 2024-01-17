@@ -18,7 +18,9 @@ ofstream error_out;
 ofstream parse_out;
 
 extern SymbolTable table;
-
+SymbolInfo_Details symbol_details;
+SymbolInfo_Details parameter_details;
+SymbolInfo_Details function_details;
 
 void yyerror(const char *s)
 {
@@ -27,6 +29,137 @@ void yyerror(const char *s)
 }
 
 
+//checks if the id already inserted or not in the current scope
+bool is_already_inserted(string name)
+{
+	SymbolInfo* symbolInfo = table.Lookup_current(name);
+	
+	if(symbolInfo == nullptr)
+		return false;
+	else 
+		return true;
+}
+
+//gets already inserted id type
+string get_id_type(string name)
+{
+	SymbolInfo* symbolInfo = table.Lookup_current(name);
+	return symbolInfo->getType();
+}
+
+//inserts id into symbol table
+void insertID_into_symbolTable(string name , string type)
+{
+	bool inserted = table.Insert(name , type);
+
+	if(!inserted)
+	{
+		//error_out << "" << endl;
+	}
+	
+}
+
+//check function declaration
+void check_function_declaration(string func_name , string func_ret_type , int line)
+{
+	if(table.Insert(func_name , "FUNCTION"))
+		{
+			SymbolInfo* symbol_info = table.Lookup(func_name);
+
+			SymbolInfo_Details function_details;
+
+			function_details.setName(func_name);
+			function_details.setType("FUNCTION");
+			function_details.setType(func_ret_type);
+
+			vector<SymbolInfo_Details>parameter_list = parameter_details.get_parameter_list();
+
+			for(int i = 0 ; i< parameter_details.get_parameterList_size() ; i++)
+			{
+				function_details.push_back_parameterList(parameter_list[i].getName() , parameter_list[i].getType());
+			}
+
+			symbol_info->symbolInfo_details = function_details;
+
+		}
+		else
+		{
+			//get the same name id at currentScope
+			if(table.Lookup_current(func_name))
+			{
+				SymbolInfo* symbol_info = table.Lookup_current(func_name);
+
+				if(symbol_info->getType()=="FUNCTION")
+				{
+					error_out << "Line# " << line << ": \'" <<func_name << "\' redeclared as different kind of symbol" << endl;
+				}
+				else
+				{
+					error_out << "Line# " << line << ": \'" <<func_name << "\' redeclared as different kind of symbol" << endl;
+				}
+
+			}
+			else{
+				
+				SymbolInfo* symbol_info = table.Lookup(func_name);
+
+				if(symbol_info->getType()=="FUNCTION")
+				{
+					error_out << "Line# " << line << ": \'" << func_name << "\' redeclared as different kind of symbol" << endl;
+				}
+				else{
+					 //global variable and func_name can't be similar
+					error_out << "Line# " << line << ": \'" << func_name << "\' redeclared as different kind of symbol" << endl;
+				}
+
+			}
+
+		}
+
+}
+
+
+//check function definiton
+void check_function_definition(string func_name , string func_ret_type , int line)
+{
+	if(table.Lookup(func_name))
+	{
+		SymbolInfo* symbol_info = table.Lookup(func_name);
+
+		if(symbol_info->getType() == "FUNCTION")
+		{
+			//have to check the parameter type , number etc
+			//gets the already declared function, parameter list is the already declared function's parameter list
+			vector<SymbolInfo_Details>already_parameter_list = (symbol_info->symbolInfo_details).get_parameter_list();
+
+			if(already_parameter_list.size() != parameter_details.get_parameterList_size())
+			{
+				//error_out << "Line# " << line << ": Too few arguments to function \'" << func_name << "\'" << endl;
+				error_out << "Line# " << line << ": Conflicting types for \'" << func_name <<"\'" << endl;
+			}
+			else
+			{
+				vector<SymbolInfo_Details>current_parameter_list = (symbol_info->symbolInfo_details).get_parameter_list();
+				//checks the parameter type
+				for(int i=0; i<current_parameter_list.size() ; i++)
+				{
+					if(current_parameter_list[i].getType() != already_parameter_list[i].getType())
+						error_out << "Line# " << line << ": Conflicting types for \'" << func_name <<"\'" << endl;
+						//error_out << "" <<  endl;
+				}
+
+			}
+		}
+		
+	}
+	else{
+		//error_out << "Line# " << line << ": Undeclared function \'" << func_name  << "\'" << endl;
+		check_function_declaration(func_name, func_ret_type , line);
+	}
+
+}
+
+//prints the parse tree
 void printParseTree(SymbolInfo* symbolInfo , int level)
 {
 	for(int i = 0; i < level ; i++)
@@ -181,7 +314,7 @@ unit : var_declaration
     ;
 
 
-
+//have to check function parameter redefination, return type should be store ,also function name will be stored.
 func_declaration : type_specifier ID LPAREN parameter_list RPAREN SEMICOLON
 	{
 		$$ = new SymbolInfo("func_declaration" , $1->getType());
@@ -199,6 +332,16 @@ func_declaration : type_specifier ID LPAREN parameter_list RPAREN SEMICOLON
 		$$->addChild($4);
 		$$->addChild($5);
 		$$->addChild($6);
+
+		string func_name = $2->getName();
+		string func_ret_type = $1->getType();
+
+		//checks the function name already inserted or not
+		check_function_declaration(func_name , func_ret_type , $1->getStartLine());
+
+		
+		SymbolInfo_Details parameter;
+		parameter_details = parameter;
 
 	}
 
@@ -218,12 +361,21 @@ func_declaration : type_specifier ID LPAREN parameter_list RPAREN SEMICOLON
 		$$->addChild($3);
 		$$->addChild($4);
 		$$->addChild($5);
+
+		string func_name = $2->getName();
+		string func_ret_type = $1->getType();
+
+		//checks the function name already inserted or not
+		check_function_declaration(func_name , func_ret_type , $1->getStartLine());
+
+		SymbolInfo_Details parameter;
+		parameter_details = parameter;
 		
     }
 	;
 
 
-
+//have to check function name , whether return type matched or not etc
 func_definition : type_specifier ID LPAREN parameter_list RPAREN compound_statement
 	{
 		$$ = new SymbolInfo("func_definition" , $1->getType());
@@ -241,6 +393,14 @@ func_definition : type_specifier ID LPAREN parameter_list RPAREN compound_statem
 		$$->addChild($4);
 		$$->addChild($5);
 		$$->addChild($6);
+
+		string func_name = $2->getName();
+		string func_ret_type = $1->getType();
+
+		check_function_definition(func_name , func_ret_type , $1->getStartLine());
+
+		SymbolInfo_Details parameter;
+		parameter_details = parameter;
 	}
 
 	| type_specifier ID LPAREN RPAREN compound_statement
@@ -260,11 +420,19 @@ func_definition : type_specifier ID LPAREN parameter_list RPAREN compound_statem
 		$$->addChild($4);
 		$$->addChild($5);
 
+		string func_name = $2->getName();
+		string func_ret_type = $1->getType();
+
+		check_function_definition(func_name , func_ret_type , $1->getStartLine());
+
+		SymbolInfo_Details parameter;
+		parameter_details = parameter;
+
     }
  	;				
 
 
-
+//have to check parameter redefination,whether type is void or not
 parameter_list  : parameter_list COMMA type_specifier ID
 	{
 		$$ = new SymbolInfo("parameter_list" , $1->getType());
@@ -281,11 +449,24 @@ parameter_list  : parameter_list COMMA type_specifier ID
 		$$->addChild($3);
 		$$->addChild($4);
 
+		if($3->getType() == "VOID")
+			error_out << "Line# " << $1->getStartLine() << ": Variable or field \'" << $4->getName() << "\' declared void" << endl;
+		else{
+			if(parameter_details.already_in_parameterList($4->getName()))
+			{
+				error_out << "Line# " << $1->getStartLine() << ": Redefinition of parameter \' " << $4->getName() << "\'" << endl;
+			}
+			else{
+				parameter_details.push_back_parameterList($4->getName() , $3->getType());
+			}
+
+		}
+
 	}
 		
 	| parameter_list COMMA type_specifier
 	{
-		$$ = new SymbolInfo("parameter_list" , $1->getType());
+		$$ = new SymbolInfo($1->getName() + ","+ $3->getName() , $1->getType());
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($3->getEndLine());
@@ -298,11 +479,14 @@ parameter_list  : parameter_list COMMA type_specifier ID
 		$$->addChild($2);
 		$$->addChild($3);
 
+		if($3->getType() == "VOID")
+			error_out << "Line# " << $1->getStartLine() << ": Variable or field \'" << $1->getName() << "\' declared void" << endl;
+
     }
 
  	| type_specifier ID
 	{
-		$$ = new SymbolInfo("parameter_list" , $1->getType());
+		$$ = new SymbolInfo($1->getName()+ $2->getName() , $1->getType());
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($2->getEndLine());
@@ -314,11 +498,24 @@ parameter_list  : parameter_list COMMA type_specifier ID
 		$$->addChild($1);
 		$$->addChild($2);
 
+		if($1->getType() == "VOID")
+			error_out << "Line# " << $1->getStartLine() << ": Variable or field \'" << $1->getName() << "\' declared void" << endl;
+		else{
+			if(parameter_details.already_in_parameterList($2->getName()))
+			{
+				error_out << "Line# " << $1->getStartLine() << ": Redefinition of parameter \' " << $2->getName() << "\'" << endl;
+			}
+			else{
+				parameter_details.push_back_parameterList($2->getName() , $1->getType());
+			}
+
+		}
+
     }
 	
 	| type_specifier
 	{
-		$$ = new SymbolInfo("parameter_list" , $1->getType());
+		$$ = new SymbolInfo($1->getName() , $1->getType());
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($1->getEndLine());
@@ -328,6 +525,10 @@ parameter_list  : parameter_list COMMA type_specifier ID
 		logout << parseTreeLine << endl;
 
 		$$->addChild($1);
+
+		if($1->getType() == "VOID")
+			error_out << "Line# " << $1->getStartLine() << ": Variable or field \'" << $1->getName() << "\' declared void" << endl;
+
 
     }
  	;
@@ -349,7 +550,8 @@ compound_statement : LCURL statements RCURL
 		$$->addChild($2);
 		$$->addChild($3);
 
-		table.PrintAllScopeTable(parse_out);//have to fix the error part and all insertion in table
+		table.PrintAllScopeTable(logout);//have to fix the error part and all insertion in table
+		table.ExitScope();
 
 	}
 
@@ -370,11 +572,11 @@ compound_statement : LCURL statements RCURL
  	;
 
 
-
+//error fixed--
 var_declaration : type_specifier declaration_list SEMICOLON
 	{
 
-		$$ = new SymbolInfo("var_declaration" , $1->getType());
+		$$ = new SymbolInfo($1->getName() + $2->getName() + ";" , $1->getType());
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($3->getEndLine());
@@ -387,6 +589,16 @@ var_declaration : type_specifier declaration_list SEMICOLON
 		$$->addChild($2);
 		$$->addChild($3);
 
+
+		if($1->getType() == "VOID")
+		{
+			error_out << "Line# " << $1->getStartLine() << ": Variable or field \'" << $2->getName() << "\' declared void" << endl;
+		}
+
+		SymbolInfo_Details new_obj;
+		symbol_details = new_obj;
+
+
 	}
  	;
 
@@ -394,7 +606,7 @@ var_declaration : type_specifier declaration_list SEMICOLON
 
 type_specifier	: INT
 	{
-		$$ = new SymbolInfo("type_specifier" , $1->getType());
+		$$ = new SymbolInfo($1->getName() , $1->getType());
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($1->getEndLine());
@@ -405,11 +617,14 @@ type_specifier	: INT
 
 		$$->addChild($1);
 
+		//sets id type
+		symbol_details.setType($1->getType());
+
 	}
 
  	| FLOAT
 	{
-		$$ = new SymbolInfo("type_specifier" , $1->getType());
+		$$ = new SymbolInfo($1->getName() , $1->getType());
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($1->getEndLine());
@@ -420,11 +635,14 @@ type_specifier	: INT
 
 		$$->addChild($1);
 
+		//sets id type
+		symbol_details.setType($1->getType());
+
     }
 
  	| VOID
 	{
-		$$ = new SymbolInfo("type_specifier" , $1->getType());
+		$$ = new SymbolInfo($1->getName() , $1->getType());
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($1->getEndLine());
@@ -435,6 +653,9 @@ type_specifier	: INT
 
 		$$->addChild($1);
 
+		//sets id type
+		symbol_details.setType($1->getType());
+
     }
  	;
  		
@@ -443,7 +664,7 @@ type_specifier	: INT
 declaration_list : declaration_list COMMA ID
 	{
 
-		$$ = new SymbolInfo("declaration_list" , $1->getType());
+		$$ = new SymbolInfo($1->getName() + "," + $2->getName() , $1->getType());
 
 		$$->setStartLine($1->getEndLine());
 		$$->setEndLine($3->getEndLine());
@@ -456,12 +677,31 @@ declaration_list : declaration_list COMMA ID
 		$$->addChild($2);
 		$$->addChild($3);
 
+
+		if(symbol_details.getType() == "")
+		{
+			error_out << "Line# " << $1->getStartLine() << ": Undeclared variable \' " << $3->getName() << "\'" << endl;
+		}
+		else{
+			if(is_already_inserted($3->getName()))
+			{
+				//have to check type  of redeclaration
+				if(get_id_type($3->getName()) == $3->getType())
+					error_out << "Line# " << $3->getStartLine() << ": Conflicting types for\'" << $3->getName() << "\'" << endl;
+				else
+					error_out << "Line# " << $1->getStartLine() << ": Redefinition of variable \'" << $3->getName() << "\'" << endl;
+			}
+			else{
+				insertID_into_symbolTable($3->getName() , $3->getType());
+			}
+		}
+
 	}
 
  	| declaration_list COMMA ID LSQUARE CONST_INT RSQUARE
 	{
 
-		$$ = new SymbolInfo("declaration_list" , $1->getType());
+		$$ = new SymbolInfo($1->getName() + "," + $2->getName() + "[" + $5->getName() + "]" , $1->getType());
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($6->getEndLine());
@@ -476,13 +716,31 @@ declaration_list : declaration_list COMMA ID
 		$$->addChild($4);
 		$$->addChild($5);
 		$$->addChild($6);
+
+		if(symbol_details.getType() == "")
+		{
+			error_out << "Line# " << $1->getStartLine() << ": Undeclared variable \' " << $3->getName() << "\'" << endl;
+		}
+		else{
+			if(is_already_inserted($3->getName()))
+			{
+				if(get_id_type($3->getName()) == $3->getType())
+					error_out << "Line# " << $3->getStartLine() << ": Conflicting types for\'" << $3->getName() << "\'" << endl;
+				else 
+					error_out << "Line# " << $1->getStartLine() << ": Redefinition of variable \'" << $3->getName() << "\'" << endl;
+			}
+			else{
+				insertID_into_symbolTable($3->getName() , $3->getType());
+				symbol_details.set_is_array(true);
+			}
+		}
 			
     }
 
  	| ID
 	{
 			
-		$$ = new SymbolInfo("declaration_list" , $1->getType());
+		$$ = new SymbolInfo($1->getName() , $1->getType());
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($1->getEndLine());
@@ -493,12 +751,32 @@ declaration_list : declaration_list COMMA ID
 
 		$$->addChild($1);
 
+		//inserts id into symbol table
+		if(symbol_details.getType() == "")
+		{
+			error_out << "Line# " << $1->getStartLine() << ": Undeclared variable \' " << $1->getName() << "\'" << endl;
+		}
+		else{
+			if(is_already_inserted($1->getName()))
+			{
+				if(get_id_type($1->getName()) == $1->getType())
+					error_out << "Line# " << $1->getStartLine() << ": Conflicting types for\'" << $1->getName() << "\'" << endl;
+				else 
+					error_out << "Line# " << $1->getStartLine() << ": Redefinition of variable \'" << $1->getName() << "\'" << endl;
+			}
+			else{
+				insertID_into_symbolTable($1->getName() , $1->getType());
+			}
+		}
+
+		
+
     }
 
  	| ID LSQUARE CONST_INT RSQUARE
 	{
 
-		$$ = new SymbolInfo("declaration_list" , $1->getType());
+		$$ = new SymbolInfo($1->getName() + "[" + $3->getName()+ "]" , $1->getType());
 
 		$$->setStartLine($1->getStartLine());
 		$$->setEndLine($4->getEndLine());
@@ -512,10 +790,28 @@ declaration_list : declaration_list COMMA ID
 		$$->addChild($3);
 		$$->addChild($4);
 
+		if(symbol_details.getType() == "")
+		{
+			error_out << "Line# " << $1->getStartLine() << ": Undeclared variable \' " << $1->getName() << "\'" << endl;
+		}
+		else{
+			if(is_already_inserted($1->getName()))
+			{
+				if(get_id_type($1->getName()) == $1->getType())
+					error_out << "Line# " << $1->getStartLine() << ": Conflicting types for\'" << $1->getName() << "\'" << endl;
+				else 
+					error_out << "Line# " << $1->getStartLine() << ": Redefinition of variable \'" << $1->getName() << "\'" << endl;
+			}
+			else{
+				insertID_into_symbolTable($1->getName() , $1->getType());
+				symbol_details.set_is_array(true);
+			}
+		}
+
     }
  	;
 
-
+//--error fixed
 
 statements : statement
 	{
@@ -1022,7 +1318,7 @@ factor	: variable
 
 		string parseTreeLine = "factor : ID LPAREN argument_list RPAREN";
 		$$->setParseTreeLine(parseTreeLine);
-		logout << parseTreeLine << endl;
+		logout << "factor	: ID LPAREN argument_list RPAREN" << endl;
 
 		$$->addChild($1);
 		$$->addChild($2);
@@ -1185,7 +1481,7 @@ int main(int argc,char *argv[])
 
 	logout.open("log.txt");
     error_out.open("error.txt");
-    parse_out.open("parse_tree.txt");
+    parse_out.open("parsetree.txt");
 	
 
 	yyin=fp;

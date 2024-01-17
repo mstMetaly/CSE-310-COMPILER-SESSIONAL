@@ -4,6 +4,116 @@
 
 using namespace std;
 
+class SymbolInfo_Details
+{
+private:
+    string name;
+    string type;
+    string func_return_type;
+    vector<SymbolInfo_Details>parameter_list;
+    bool isArray;
+    bool isFunction;
+
+public:
+    SymbolInfo_Details()
+    {
+        name = "";
+        type = "";
+        func_return_type = "";
+        isArray = false;
+        isFunction = false;
+    }
+
+    SymbolInfo_Details(string name , string type)
+    {
+        this->name = name;
+        this->type = type;
+        isArray = false;
+    }
+
+    string getName()
+    {
+        return this->name;
+    }
+
+    void setName(string name)
+    {
+        this->name = name;
+    }
+
+    string getType()
+    {
+        return this->type;
+    }
+
+    void setType(string type)
+    {
+        this->type = type;
+    }
+
+    string getFuncType()
+    {
+        return func_return_type;
+    }
+
+    void set_func_ret_type(string ret_type)
+    {
+        this->func_return_type = ret_type;
+    }
+
+    int get_parameterList_size()
+    {
+        return parameter_list.size();
+    }
+
+    void set_is_array(bool val)
+    {
+        this->isArray = val;
+    }
+
+    bool check_is_array()
+    {
+        return isArray;
+    }
+
+    bool check_is_function()
+    {
+        return isFunction;
+    }
+
+    void set_is_function(bool val)
+    {
+        this->isFunction = val;
+    }
+
+    void push_back_parameterList(string name ,string type)
+    {
+        SymbolInfo_Details symbol_details(name , type);
+        this->parameter_list.push_back(symbol_details);
+    }
+
+    bool already_in_parameterList(string name)
+    {
+        for(int i = 0; i < parameter_list.size() ; i++)
+        {
+            SymbolInfo_Details symbol_details = parameter_list[i];
+
+            if(name == symbol_details.getName())
+                return true;
+        }
+
+        return false;
+    }
+
+    vector<SymbolInfo_Details>get_parameter_list()
+    {
+        return parameter_list;
+    }
+
+
+};
+
+
 class SymbolInfo
 {
 
@@ -18,7 +128,11 @@ private:
     string parseTreeLine;
     vector<SymbolInfo*> childList;
 
+    
+
 public:
+    SymbolInfo_Details symbolInfo_details;
+
     SymbolInfo()
     {
         name = "";
@@ -562,6 +676,20 @@ public:
             current = current->getParentScope();
         }
         return getPtr;
+    }
+
+    SymbolInfo* Lookup_current(string name)
+    {
+        SymbolInfo *getPtr = nullptr;
+
+        if(currScopeTable==nullptr)
+        {
+            return nullptr;
+        }
+       
+        getPtr = currScopeTable->Lookup(name);
+        return getPtr;
+        
     }
 
     /*Print Current ScopeTable: Print the current ScopeTable.*/

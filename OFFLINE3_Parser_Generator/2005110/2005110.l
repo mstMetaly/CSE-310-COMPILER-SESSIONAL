@@ -508,7 +508,7 @@ NEWLINE \n
 
 "}"         {
 				--indentationCount;
-				table.ExitScope();
+				//table.ExitScope();
 
 				printToken("RCURL" , yytext , lineCount);
 
