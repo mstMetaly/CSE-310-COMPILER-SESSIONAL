@@ -1,0 +1,48 @@
+int main()
+{
+	int i, j, k;
+
+	i=3;
+	j=8;
+	k=6;
+
+
+	if(i==3)
+{
+		println(();
+}
+
+
+	if(j<8)
+{
+		println(();
+}
+elseelse
+{
+		println(();
+}
+
+
+	if(k!=6)
+{
+		println(();
+}
+elseelseif(j>8)
+{
+		println(();
+}
+elseelseif(i<5)
+{
+		println(();
+}
+elseelse
+{
+		k=0;
+		println(();
+}
+
+
+
+	return 0;
+}
+
