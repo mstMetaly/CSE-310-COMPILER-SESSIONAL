@@ -1,0 +1,15 @@
+Error at line# 1: INVALID_ID_SUFFIX_NUM_PREFIX 123CSE
+	ScopeTable# 1
+	1
+	2
+	3
+	4
+	5
+	6
+	7
+	8
+	9
+	10
+Total lines: 1
+Total errors: 1
+Total warnings: 0

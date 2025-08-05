@@ -6,7 +6,7 @@
 #include<bits/stdc++.h>
 #include<iostream>
 
-#include "2005110_SymbolTable.h"
+#include "2005110.h"
 
 
 using namespace std ;
@@ -66,9 +66,37 @@ NEWLINE \n
 		  }
 
 
+^[\t]*  {
+			spaceCount = yyleng;
+			
+			if(spaceCount == 0)
+			{
+				logout << "Line# " <<lineCount << ": warning, " << indentationCount <<" of tabs needed but got 0 tabs." << endl;
+				warningCount++;
+				spaceCount = 0;
+			}
+
+			else if(spaceCount != indentationCount)
+			{
+				logout << "Line# " << lineCount << ": warning, " << indentationCount << " of tabs needed but got " << spaceCount << " tabs." << endl;
+				warningCount++;
+				spaceCount = 0;
+			}
+
+}
+
+^[\t][\t]+?[ ] {
+				logout << "Line# " << lineCount << ": Warning, tab requrired but got space." << endl;
+				warningCount++;
+				spaceCount = 0;
+               }
+
+
+
 {WHITESPACE} {
 
-			 }
+			}
+
 
 
 "if"        {
@@ -187,6 +215,9 @@ NEWLINE \n
 
 
 
+
+
+
 "+"		|
 "-"         {
 				printToken("ADDOP" , yytext , lineCount);
@@ -198,12 +229,16 @@ NEWLINE \n
 				printToken("MULOP" , yytext , lineCount);
             }
 
-
-
 "++"    |
 "--"        {
 				printToken("INCOP" , yytext , lineCount);
             }
+
+"+++"		{
+	printToken("PPP" , yytext , lineCount);
+}
+
+
 
 
 "<"     |
@@ -550,6 +585,7 @@ NEWLINE \n
 										lineCount++;
 
 										multiLineString = true;
+
 									}
 
 
@@ -565,6 +601,7 @@ NEWLINE \n
 										lineCount++;
 										inputString = "";
 										multiLineString = false;
+
 										BEGIN(INITIAL);
 									}
 
@@ -630,6 +667,10 @@ NEWLINE \n
 
 
 int main(int argc,char *argv[]){
+
+	/*flex -o 2005110.cpp 2005110.l
+    g++ 2005110.cpp -o 2005110.out
+    ./2005110.out input.txt*/
 	
 	if(argc!=2){
 		printf("Please provide input file name and try again\n");
@@ -644,8 +685,8 @@ int main(int argc,char *argv[]){
 	}
 	
 
-	logout.open("log.txt");
-	tokenout.open("token.txt");
+	logout.open("2005110_log.txt");
+	tokenout.open("2005110_token.txt");
 
 	yyin= fin;
 
