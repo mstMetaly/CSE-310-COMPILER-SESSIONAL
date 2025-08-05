@@ -572,8 +572,10 @@ public:
     /*Print: Print the scope table in the console.*/
     void Print(ofstream& outfile)
     {
+        SymbolInfo_Details details_obj ;
         // scopeTable Number
-        outfile << "\tScopeTable# " << current_id << endl;
+        int tableIDSum = sumOfDotSeparatedNumbers(current_id);
+        outfile << "\tScopeTable# " << tableIDSum << endl;
 
         for (unsigned long long i = 0; i < total_buckets; i++)
         {
@@ -596,7 +598,16 @@ public:
                     }
                     else
                     {
-                        outfile << "\t" << i + 1 << "--> <" << current->getName() << "," << current->getType() << ">" << endl;
+                        details_obj = current->symbolInfo_details;
+                        if(details_obj.check_is_array())
+                        {
+                             outfile << "\t" << i + 1 << "--> <" << current->getName() << "," << "ARRAY" << ">" << endl;
+                        }
+                        else
+                        {
+                             outfile << "\t" << i + 1 << "--> <" << current->getName() << "," << current->getType() << ">" << endl;
+                        }
+                       
                     }
                    
                 }
@@ -611,7 +622,16 @@ public:
                     }
                     else
                     {
-                        outfile << "\t" << i + 1 << "--> <" << current->getName() << "," << current->getType() << ">";
+                        details_obj = current->symbolInfo_details;
+                        if(details_obj.check_is_array())
+                        {
+                            outfile << "\t" << i + 1 << "--> <" << current->getName() << "," << "ARRAY" << ">";
+                        }
+                        else
+                        {
+                            outfile << "\t" << i + 1 << "--> <" << current->getName() << "," << current->getType() << ">";
+                        }
+                       
                     }
                    
                     next = current->getNextSymbolInfo();
@@ -626,7 +646,16 @@ public:
                         }
                         else
                         {
-                            outfile << " <" << next->getName() << "," << next->getType() << ">";
+                            details_obj = next->symbolInfo_details;
+                            if(details_obj.check_is_array())
+                            {
+                                outfile << " <" << next->getName() << "," << "ARRAY" << ">";
+                            }
+                            else
+                            {
+                                outfile << " <" << next->getName() << "," << next->getType() << ">";
+                            }
+                           
                         }
                        
                         next = next->getNextSymbolInfo();
@@ -678,6 +707,27 @@ public:
             }
         }
     }
+
+
+    //get the sum of table id
+    int sumOfDotSeparatedNumbers(const string& inputString) {
+    stringstream ss(inputString);
+    string token;
+    vector<int> numbers;
+
+    while (getline(ss, token, '.')) {
+            int number = stod(token);
+            numbers.push_back(number);
+    }
+
+    int sum = 0;
+    for (const auto& number : numbers) {
+        sum += number;
+    }
+
+    return sum;
+}
+
 };
 
 

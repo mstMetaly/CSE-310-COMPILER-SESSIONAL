@@ -276,6 +276,16 @@ NEWLINE \n
                 return CONTINUE;
             }
 
+"println"	{
+				printToken("PRINTLN" , yytext , lineCount);
+
+                SymbolInfo* symbolInfo = new SymbolInfo( yytext , "PRINTLN");
+                symbolInfo->setStartLine(lineCount);
+                symbolInfo->setEndLine(lineCount);
+                symbolInfo->setIsLeaf(true);
+                yylval.symbolInfo = symbolInfo;
+                return PRINTLN;
+			}
 
 
 

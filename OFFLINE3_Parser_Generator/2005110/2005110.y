@@ -15,6 +15,7 @@ extern FILE* yyin;
 extern ofstream logout;
 extern int lineCount;
 extern int errCount;
+int errorCount = 0;
 ofstream error_out;
 ofstream parse_out;
 
@@ -74,6 +75,7 @@ void check_variable(string name , string type , int line)
 	if(symbol_info== nullptr)
 	{
 		error_out << "Line# " << line << ": Undeclared variable \' " << name << "\'" << endl;
+		errCount++;
 	}
 	
 }
@@ -90,12 +92,14 @@ void check_is_array(string name , string type , int line)
 		if(!details_obj.check_is_array())
 		{
 			error_out << "Line# " << line << ": \'" << name << "\' is not an array" << endl;
+			errorCount++;
 		}
 		else{
 			//check array subscript
 			if(type != "INT")
 			{
 				error_out << "Line# " <<  line << ": Array subscript is not an integer" << endl;
+				errorCount++;
 			}
 		}
 	}
@@ -130,6 +134,7 @@ void check_function_declaration(string func_name , string func_type , int line, 
 	}
 	else{
 		error_out << "Line# " << line << ": \'" << func_name << "\'" << "redeclared as different kind of symbol" << endl;
+		errorCount++;
 	}
 
 
@@ -193,7 +198,7 @@ void check_function_definition(string func_name , string func_type , int line )
 				if(details_obj.getFuncType() != func_type)
 				{
 					error_out << "Line# " << line <<": Conflicting types for \'" << func_name << "\'" << endl;
-					//function_details.set_is_error_function(true);
+					errorCount++;
 				}
 				else
 				{
@@ -203,6 +208,7 @@ void check_function_definition(string func_name , string func_type , int line )
 					if(defined_parameter_list.size() != current_parameter_list.size())
 					{
 						error_out << "Line# " << line <<": Conflicting types for \'" << func_name << "\'" << endl;
+						errorCount++;
 					}
 					else
 					{
@@ -211,6 +217,7 @@ void check_function_definition(string func_name , string func_type , int line )
 							if(defined_parameter_list[i].getType() != current_parameter_list[i].getType())
 							{
 								error_out << "Line# " << line <<": Conflicting types for \'" << func_name << "\'" << endl;
+								errorCount++;
 							}
 						}
 					}
@@ -226,6 +233,7 @@ void check_function_definition(string func_name , string func_type , int line )
 		{
 			//another variable exist with this function name
 			error_out << "Line# " << line << ": \'" << func_name << "\' redeclared as different kind of symbol" << endl;
+			errorCount++;
 		}
 
 
@@ -268,7 +276,7 @@ void add_parameter_to_func(string func_name,string ret_type)
 
 
 //checks factor: function call
-/*
+
  void check_factor_function(string name , string type , int line)
 {
 	SymbolInfo* symbol_info = table.Lookup(name);
@@ -325,7 +333,7 @@ void add_parameter_to_func(string func_name,string ret_type)
 	}
 
 }
-*/
+
 
 
 
@@ -373,10 +381,10 @@ SymbolInfo* symbolInfo;
 
 
 %left ASSIGNOP
-%left LOGICOP
 %left RELOP
-%left ADDOP
+%left LOGICOP
 %left MULOP
+%left ADDOP
 %right NOT
 %right INCOP DECOP
 
@@ -397,7 +405,7 @@ start : program
 		$$->setParseTreeLine(parseTreeLine);
 		logout << parseTreeLine << endl;
 		logout << "Total Lines: " << lineCount << endl;
-        logout << "Total Errors: " << errCount << endl;
+        logout << "Total Errors: " << errorCount << endl;
 
 		$$->addChild($1);
 
@@ -628,10 +636,6 @@ func_definition : type_specifier ID LPAREN parameter_list RPAREN {string functio
 			add_parameter_to_func(function_details.getName() ,$1->getType());
 		}
 
-		//check and insert func id
-		//check_function_definition(func_name , func_ret_type , $1->getStartLine());
-
-
 		symbol_details.clear_parameter_list();
 		SymbolInfo_Details obj;
 		function_details = obj;
@@ -640,41 +644,34 @@ func_definition : type_specifier ID LPAREN parameter_list RPAREN {string functio
  	;				
 
 
-
-//final fixed
-
 new_scope:{
 	
 	table.EnterScope();
 
 	//inserts all the parameter of the declared function
-	//if(function_details.get_is_declared()==true && function_details.get_is_defined()==false)
-	//{
-		vector<SymbolInfo_Details>current_parameter_list = symbol_details.get_parameter_list();
-		vector<SymbolInfo_Details>error_parameter_list = function_details.get_parameter_list();
-		if(function_details.get_is_error_function())
+
+	vector<SymbolInfo_Details>current_parameter_list = symbol_details.get_parameter_list();
+	vector<SymbolInfo_Details>error_parameter_list = function_details.get_parameter_list();
+	if(function_details.get_is_error_function())
+	{
+		for(int i=0;i<error_parameter_list.size() ;i++)
 		{
-			for(int i=0;i<error_parameter_list.size() ;i++)
-			{
-				table.Insert(error_parameter_list[i].getName() , error_parameter_list[i].getType());
-			}
+			table.Insert(error_parameter_list[i].getName() , error_parameter_list[i].getType());
 		}
-		else
+	}
+	else
+	{
+		for(int i=0;i<current_parameter_list.size() ;i++)
 		{
-			for(int i=0;i<current_parameter_list.size() ;i++)
-			{
-				table.Insert(current_parameter_list[i].getName() , current_parameter_list[i].getType());
-			}
+			table.Insert(current_parameter_list[i].getName() , current_parameter_list[i].getType());
 		}
+	}
 		
-	//}
-
-
 	
 }
 
 
-//final fixed
+
 //have to check parameter redefination,whether type is void or not
 parameter_list  : parameter_list COMMA type_specifier ID
 	{
@@ -693,12 +690,17 @@ parameter_list  : parameter_list COMMA type_specifier ID
 		$$->addChild($4);
 
 		if($3->getType() == "VOID")
+		{
 			error_out << "Line# " << $1->getStartLine() << ": Variable or field \'" << $4->getName() << "\' declared void" << endl;
+			errorCount++;
+		}
+
 		else{
 			
 			if(symbol_details.already_in_parameterList($4->getName()))
 			{
 				error_out << "Line# " << $1->getStartLine() << ": Redefinition of parameter \'" << $4->getName() << "\'" << endl;
+				errorCount++;
 				symbol_details.push_back_parameterList($4->getName() , $3->getType());
 			}
 			else{
@@ -726,7 +728,10 @@ parameter_list  : parameter_list COMMA type_specifier ID
 		$$->addChild($3);
 
 		if($3->getType() == "VOID")
+		{
 			error_out << "Line# " << $1->getStartLine() << ": Variable or field \'" << "" << "\' declared void" << endl;
+			errorCount++;
+		}
 		
 		symbol_details.push_back_parameterList("",$3->getType());
 
@@ -747,11 +752,16 @@ parameter_list  : parameter_list COMMA type_specifier ID
 		$$->addChild($2);
 
 		if($1->getType() == "VOID")
+		{
 			error_out << "Line# " << $1->getStartLine() << ": Variable or field \'" << $2->getName() << "\' declared void" << endl;
+			errorCount++;
+		}
+			
 		else{
 			if(symbol_details.already_in_parameterList($2->getName()))
 			{
 				error_out << "Line# " << $1->getStartLine() << ": Redefinition of parameter \'" << $2->getName() << "\'" << endl;
+				errorCount++;
 				symbol_details.push_back_parameterList($2->getName() , $1->getType());
 			}
 			else{
@@ -776,7 +786,11 @@ parameter_list  : parameter_list COMMA type_specifier ID
 		$$->addChild($1);
 
 		if($1->getType() == "VOID")
+		{
 			error_out << "Line# " << $1->getStartLine() << ": Variable or field \'" << "" << "\' declared void" << endl;
+			errorCount++;
+		}
+			
 		
 		symbol_details.push_back_parameterList("" , $1->getType());
 
@@ -846,12 +860,6 @@ var_declaration : type_specifier declaration_list SEMICOLON
 		$$->addChild($2);
 		$$->addChild($3);
 
-
-		// if($1->getType() == "VOID")
-		// {
-		// 	error_out << "Line# " << $1->getStartLine() << ": Variable or field \'" << $2->getName() << "\' declared void" << endl;
-		// }
-
 		symbol_details.set_variable_type("");
 
 
@@ -859,7 +867,6 @@ var_declaration : type_specifier declaration_list SEMICOLON
  	;
 
 
-//final fixed
 type_specifier	: INT
 	{
 		$$ = new SymbolInfo($1->getName() , "INT");
@@ -916,8 +923,6 @@ type_specifier	: INT
  	;
  		
 
-
-//final fixed
 declaration_list : declaration_list COMMA ID
 	{
 
@@ -938,6 +943,7 @@ declaration_list : declaration_list COMMA ID
 		if(symbol_details.get_variable_type() == "")
 		{
 			error_out << "Line# " << $1->getStartLine() << ": Undeclared variable \'" << $3->getName() << "\'" << endl;
+			errorCount++;
 		}
 		else{
 			//checks already inserted in current scope or not
@@ -945,9 +951,16 @@ declaration_list : declaration_list COMMA ID
 			{
 				//have to check type  of redeclaration
 				if(get_id_type($3->getName()) != symbol_details.get_variable_type())
+				{
 					error_out << "Line# " << $3->getStartLine() << ": Conflicting types for\'" << $3->getName() << "\'" << endl;
+					errorCount++;
+				}
 				else
+				{
 					error_out << "Line# " << $1->getStartLine() << ": Redefinition of variable \'" << $3->getName() << "\'" << endl;
+					errorCount++;
+				}
+					
 			}
 			else
 			{
@@ -979,14 +992,23 @@ declaration_list : declaration_list COMMA ID
 		if(symbol_details.get_variable_type() == "")
 		{
 			error_out << "Line# " << $1->getStartLine() << ": Undeclared variable \'" << $3->getName() << "\'" << endl;
+			errorCount++;
 		}
 		else{
 			if(is_already_inserted($3->getName()))
 			{
 				if(get_id_type($3->getName()) != symbol_details.get_variable_type())
+				{
+					errorCount++;
 					error_out << "Line# " << $3->getStartLine() << ": Conflicting types for\'" << $3->getName() << "\'" << endl;
+
+				}		
 				else 
+				{
 					error_out << "Line# " << $1->getStartLine() << ": Redefinition of variable \'" << $3->getName() << "\'" << endl;
+					errorCount++;
+				}
+					
 			}
 			else
 			{
@@ -1016,18 +1038,28 @@ declaration_list : declaration_list COMMA ID
 		if(symbol_details.get_variable_type() == "")
 		{
 			error_out << "Line# " << $1->getStartLine() << ": Undeclared variable \' " << $1->getName() << "\'" << endl;
+			errorCount++;
 		}
 		else if(symbol_details.get_variable_type() == "VOID")
 		{
 			error_out << "Line# " << $1->getStartLine() << ": Variable or field \'" << $1->getName() <<"\' declared void" << endl;
+			errorCount++;
 		}
 		else{
 			if(is_already_inserted($1->getName()))
 			{
 				if(get_id_type($1->getName()) != symbol_details.get_variable_type())
+				{
 					error_out << "Line# " << $1->getStartLine() << ": Conflicting types for\'" << $1->getName() << "\'" << endl;
+					errorCount++;
+				}
+					
 				else 
+				{
 					error_out << "Line# " << $1->getStartLine() << ": Redefinition of variable \'" << $1->getName() << "\'" << endl;
+					errorCount++;
+				}
+					
 			}
 			else
 			{
@@ -1059,14 +1091,22 @@ declaration_list : declaration_list COMMA ID
 		if(symbol_details.get_variable_type() == "")
 		{
 			error_out << "Line# " << $1->getStartLine() << ": Undeclared variable \' " << $1->getName() << "\'" << endl;
+			errorCount++;
 		}
 		else{
 			if(is_already_inserted($1->getName()))
 			{
 				if(get_id_type($1->getName()) != symbol_details.get_variable_type())
+				{
+					errorCount++;
 					error_out << "Line# " << $1->getStartLine() << ": Conflicting types for\'" << $1->getName() << "\'" << endl;
-				else 
+				}
+				else
+				{
 					error_out << "Line# " << $1->getStartLine() << ": Redefinition of variable \'" << $1->getName() << "\'" << endl;
+					errorCount++;
+				} 
+					
 			}
 			else{
 				insertID_into_symbolTable($1->getName() , symbol_details.get_variable_type());
@@ -1080,8 +1120,6 @@ declaration_list : declaration_list COMMA ID
 
     }
  	;
-
-//--error final fixed
 
 
 
@@ -1326,6 +1364,7 @@ variable : ID
 		if(symbol_info==nullptr)
 		{
 			error_out << "Line# " << $1->getStartLine() <<": Undeclared variable \'" << var_name <<"\'" << endl;
+			errorCount++;
 			$$ = new SymbolInfo(var_name , "undeclared");
 		}
 		else
@@ -1358,6 +1397,7 @@ variable : ID
 		if(symbol_info == nullptr)
 		{
 			error_out << "Line# " << $1->getStartLine() <<": Undeclared variable \'" << var_name <<"\'" << endl;
+			errorCount++;
 			$$ = new SymbolInfo(var_name , "undeclared");
 		}
 		else
@@ -1373,6 +1413,7 @@ variable : ID
 				if(subscript_type!= "INT")
 				{
 					error_out << "Line# " <<  $1->getStartLine() << ": Array subscript is not an integer" << endl;
+					errorCount++;
 				}
 
 				$$ = new SymbolInfo(var_name,array_type);
@@ -1381,6 +1422,7 @@ variable : ID
 			else
 			{
 				error_out << "Line# " << $1->getStartLine() << ": \'" << var_name << "\' is not an array" << endl;
+				errorCount++;
 				$$ = new SymbolInfo(var_name,var_type);
 			}
 
@@ -1435,10 +1477,12 @@ variable : ID
 		if(operand1_type == "VOID" || operand2_type == "VOID")
 		{
 			error_out << "Line# " << lineCount << ": Void cannot be used in expression" << endl;
+			errorCount++;
 		}
 		else if(operand1_type == "INT" && operand2_type== "FLOAT")
 		{
 			error_out << "Line# " << lineCount << ": Warning: possible loss of data in assignment of FLOAT to INT" << endl;
+			errorCount++;
 			type = "INT";
 		}
 		else if(operand1_type == "FLOAT" && operand2_type== "FLOAT")
@@ -1486,14 +1530,19 @@ logic_expression : rel_expression
 		string type = "INT";
 
 		if(operand1_type == "VOID")
+		{
+			errorCount++;
 			error_out << "Line# " << lineCount << ": Void cannot be used in expression" << endl;
+		}
+
 		else if(operand2_type == "VOID")
 		{
 			error_out << "Line# " << lineCount << ": Void cannot be used in expression" << endl;
+			errorCount++;
 		}
 		else
 		{
-			//handleTypeCastAvoidCheck($1,$3,"Type mismatch");
+			//check error recovery
 		}
 
 		$$ = new SymbolInfo( $1->getName() + $2->getName() + $3->getName() , type);
@@ -1536,14 +1585,20 @@ rel_expression	: simple_expression
 		string type = "INT";
 
 		if(operand1_type == "VOID")
+		{
+			errorCount++;
 			error_out << "Line# " << lineCount << ": Void cannot be used in expression" << endl;
+
+		}
+			
 		else if(operand2_type == "VOID")
 		{
 			error_out << "Line# " << lineCount << ": Void cannot be used in expression" << endl;
+			errorCount++;
 		}
 		else
 		{
-			//handleTypeCastAvoidCheck($1,$3,"Type mismatch");
+			//check eeror recovery
 		}
 
 		$$ = new SymbolInfo( $1->getName() + $2->getName() + $3->getName() , type);
@@ -1584,19 +1639,24 @@ simple_expression : term
 		string type = operand1_type;
 
 		if(operand1_type == "VOID")
+		{
+			errorCount++;
 			error_out << "Line# " << lineCount << ": Void cannot be used in expression" << endl;
+		}
+			
 		else if(operand2_type == "VOID")
 		{
 			type = operand1_type;
 			error_out << "Line# " << lineCount << ": Void cannot be used in expression" << endl;
+			errorCount++;
 
 		}
 		else
 		{
-			//handleTypeCastAvoidCheck($1,$3,"Type mismatch");
+			//check error recovery
 		}
 		
-		//handleTypeCheck(left symbol,right symbol)
+		// Type Check
 
 		$$ = new SymbolInfo( $1->getName() +  $2->getType() + $3->getName() , type);
 
@@ -1634,7 +1694,7 @@ term :	unary_expression
 		//checks both operands for modulus int or not , disision by zero or not
 
 		string addop_symbol = $2->getName();
-		string operand1_type = $2->getType();
+		string operand1_type = $1->getType();//modify $2
 		string operand2_name = $3->getName();
 		string operand2_type = $3->getType();
 
@@ -1643,30 +1703,42 @@ term :	unary_expression
 		if(operand1_type == "VOID")
 		{
 			error_out << "Line# " << lineCount << ": Void cannot be used in expression" << endl;
+			errorCount++;
 		}
 		else if(operand2_type == "VOID")
 		{
 			type = operand1_type;
 			error_out << "Line# " << lineCount << ": Void cannot be used in expression" << endl;
+			errorCount++;
 		}
 		else if(addop_symbol == "/")
 		{
 			if(operand2_name == "0")
+			{
+				errorCount++;
 				error_out << "Line# " << lineCount << ": Warning: division by zero i=0f=1Const=0" << endl;
+			}
 
 		}
 		else if(addop_symbol == "%")
 		{
 			if(operand2_name == "0")
+			{
 				error_out << "Line# " << lineCount << ": Warning: division by zero i=0f=1Const=0" << endl;
-			else if(operand1_type != "INT " || operand2_type!= "INT")
+				errorCount++;
+			}
+			else if(operand1_type != "INT" || operand2_type!= "INT")
+			{
 				error_out << "Line# " << lineCount << ": Operands of modulus must be integers" << endl;
+				errorCount++;
+			}
+				
 			
 			type = "INT";
 		}
 		else
 		{
-			//handleTypeCastAvoidCheck($1,$3,"Type mismatch");
+			//check error recovery
 		}
 
 
@@ -1763,6 +1835,7 @@ factor	: variable
 		if(symbol_info == nullptr)
 		{
 			error_out << "Line# " << lineCount << ": Undeclared function \'" << name << "\'" << endl;
+			errorCount++;
 			$$ = new SymbolInfo( factor_name,  "undeclared");
 		}
 		else if(symbol_info->getType()=="FUNCTION")
@@ -1781,10 +1854,12 @@ factor	: variable
 			if( argument_list.size() < parameter_list.size() )
 			{
 				error_out << "Line# " << lineCount << ": Too few arguments to function \'"<<  name << "\'" << endl;
+				errorCount++;
 			}
 			else if( argument_list.size() > parameter_list.size())
 			{
 				error_out << "Line# " << lineCount << ": Too many arguments to function \'"<<  name << "\'" << endl;
+				errorCount++;
 			}
 			else
 			{
@@ -1796,6 +1871,7 @@ factor	: variable
 					if(parameter_list[i].getType() != argument_type)
 					{
 						error_out << "Line# " << lineCount << ": Type mismatch for argument " << i+1<<" of \'" << name << "\'" << endl;
+						errorCount++;
 					}
 				}
 			}
@@ -1804,6 +1880,7 @@ factor	: variable
 		else{
 
 			error_out << "Line# " << lineCount << ": is not a function \' "<<  name << "\'" << endl;
+			errorCount++;
 			$$ = new SymbolInfo( factor_name ,"not function");
 		}
 			
